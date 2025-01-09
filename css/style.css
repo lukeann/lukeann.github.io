@@ -140,12 +140,12 @@ body {
     }
 
     .left-panel {
-        width: 100%; /* 图片占据整个宽度 */
-        height: 30vh; /* 图片高度调整为视口的 30% */
+        width: 90%; /* 图片占据整个宽度 */
+        height: 20vh; /* 图片高度调整为视口的 30% */
         position: relative; /* 取消绝对定位 */
         top: auto;
         transform: none; /* 取消垂直居中 */
-        border-radius: 0; /* 取消圆角 */
+        border-radius: 20; /* 取消圆角 */
         display: flex;
         justify-content: center; /* 图片水平居中 */
         align-items: flex-start; /* 图片居于顶部 */
@@ -154,7 +154,7 @@ body {
     .left-image {
         width: 80%; /* 图片宽度调整为 80% */
         height: 100%; /* 图片高度填充容器 */
-        border-radius: 0; /* 取消圆角 */
+        border-radius: 20; /* 取消圆角 */
     }
 
     .right-panel {
@@ -169,8 +169,8 @@ body {
     .box {
         width: calc(100% - 20px); /* 每个方块占据整个宽度，留出边距 */
         margin: 10px 0; /* 减少方块之间的间距 */
-        height: auto; /* 高度自适应 */
-        border-radius: 20px; /* 圆角调整为较小值 */
+        height: 40px; /* 高度自适应 */
+        border-radius: 10px; /* 圆角调整为较小值 */
     }
 
     .box-title {
@@ -178,6 +178,6 @@ body {
     }
 
     .box-description {
-        font-size: 14px; /* 调整描述字体大小 */
+        font-size: 12px; /* 调整描述字体大小 */
     }
 }
