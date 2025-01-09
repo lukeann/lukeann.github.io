@@ -1,27 +1,59 @@
+:root {
+    --left-panel-width: 25%; /* 底图宽度，可以随时修改 */
+    --left-panel-height: 70vh; /* 底图高度，可以随时修改 */
+}
+
 body {
     margin: 0;
-    font-family: Arial, sans-serif;
+    font-family: "微软雅黑", Arial, sans-serif; /* 使用微软雅黑字体 */
     overflow-x: hidden; /* 防止水平滚动 */
+    background-color: #ECEFE9; /* 网页背景颜色 */
 }
 
 .container {
     display: flex;
-    height: 100vh;
+    height: 100vh; /* 覆盖整个视口高度 */
+    position: relative; /* 为 .left-panel 的绝对定位提供参考 */
 }
 
 /* 左侧图片和自我介绍 */
 .left-panel {
-    width: 25%; /* 图片宽度调整为 1/4 */
-    position: fixed; /* 图片固定，不受滚动影响 */
-    height: 100vh;
+    width: 25%; /* 底图宽度 */
+    height: 60vh; /* 底图高度 */
+    position: absolute; /* 改为绝对定位 */
+    top: 50%; /* 顶部距离 50% */
+    left: 0; /* 水平方向靠左 */
+    transform: translateY(-50%); /* 垂直居中 */
     overflow: hidden;
+    background-color: #D69760; /* 底图颜色 */
+    display: flex;
+    align-items: center; /* 垂直居中 */
+    justify-content: center; /* 水平居中 */
+    border-radius: 0 60px 60px 0; /* 右侧两个圆角 */
+}
+
+.image-container {
+    width: 90%; /* 预留区域宽度为底图的 90% */
+    height: 90%; /* 预留区域高度为底图的 90% */
+    display: flex;
+    align-items: center; /* 垂直居中 */
+    justify-content: center; /* 水平居中 */
+    overflow: hidden; /* 隐藏超出部分 */
+    border-radius: 0 20px 20px 0; /* 圆角效果 */
 }
 
 .left-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    width: 100%; /* 图片宽度填充预留区域 */
+    height: 100%; /* 图片高度填充预留区域 */
+    object-fit: cover; /* 保持比例不变，裁剪以适应区域 */
     cursor: pointer;
+    border-radius: 0 20px 20px 0; /* 圆角效果 */
+    filter: brightness(0.8); /* 去掉模糊，保留降低明度 */
+    transition: filter 0.2s; /* 添加过渡效果 */
+}
+
+.left-image:hover {
+    filter: brightness(1); /* 鼠标悬停时取消降低明度 */
 }
 
 .intro-text {
@@ -43,75 +75,59 @@ body {
     top: 0;
 }
 
+/* 右侧六个区域 */
 .right-panel {
-    width: 75%; /* 右侧宽度调整为 3/4 */
-    margin-left: 25%; /* 与左侧图片对齐 */
+    width: calc(100% - var(--left-panel-width)); /* 右侧宽度 */
+    margin-left: var(--left-panel-width); /* 与左侧图片对齐 */
     display: flex;
     flex-wrap: wrap;
     padding: 20px;
     box-sizing: border-box;
+    align-items: center; /* 垂直居中 */
+    justify-content: center; /* 水平居中 */
 }
 
 .box {
-    width: calc(33.33% - 40px); /* 每行三个方块，留出边距 */
+    width: calc(30% - 40px); /* 每行三个方块，留出边距 */
     margin: 20px;
-    height: calc(50% - 40px); /* 两行方块，留出边距 */
+    height: calc(40% - 40px); /* 两行方块，留出边距 */
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    border: 4px solid; /* 描边加粗 */
-    border-radius: 15px;
+    border-radius: 60px;
     cursor: pointer;
     transition: transform 0.3s, box-shadow 0.3s;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    color: #f0f0f0; /* 字体颜色改为偏白色 */
+    color: #f0f0f0;
+    background-color: rgba(255, 255, 255, 0.1); /* 半透明背景 */
+    backdrop-filter: blur(10px); /* 玻璃质感 */
+    border: 2px solid rgba(255, 255, 255, 0.5); /* 半透明边框 */
 }
 
 .box:hover {
     transform: translateY(-5px);
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    background-color: rgba(255, 255, 255, 0.2); /* 鼠标悬停时更透明 */
 }
 
 .box-title {
     font-size: 24px;
-    font-weight: bold;
+    font-weight: bold; /* 大字加粗 */
     margin-bottom: 10px;
 }
 
 .box-description {
-    font-size: 14px;
-    color: #f0f0f0; /* 字体颜色改为偏白色 */
+    font-size: 12px;
+    font-weight: normal; /* 小字不加粗 */
+    color: rgba(255, 255, 255, 0.5); /* 半透明白色 */
     text-align: center;
 }
 
-/* 马卡通色系填充 */
-#box1 { background-color: #FF6F61; border-color: #FF3B2F; }
-#box2 { background-color: #6B5B95; border-color: #4A3C6E; }
-#box3 { background-color: #88B04B; border-color: #6A8F3B; }
-#box4 { background-color: #F7CAC9; border-color: #F4A6A3; }
-#box5 { background-color: #92A8D1; border-color: #6E8CC3; }
-#box6 { background-color: #955251; border-color: #733A39; }
-
-@media (max-width: 768px) {
-    .container {
-        flex-direction: column;
-    }
-    .left-panel {
-        width: 100%;
-        height: 200px;
-    }
-    .right-panel {
-        width: 100%;
-        margin-left: 0;
-    }
-    .box {
-        width: calc(50% - 40px); /* 在小屏幕上每行两个方块 */
-    }
-}
-
-@media (max-width: 480px) {
-    .box {
-        width: calc(100% - 40px); /* 在更小的屏幕上每行一个方块 */
-    }
-}
+/* 方块颜色 */
+#box1 { background-color: #9F7E6A; border-color: #9F7E6A; } /* 思考写作 */
+#box2 { background-color: #B1734D; border-color: #B1734D; } /* 作业存档 */
+#box3 { background-color: #E46B21; border-color: #E46B21; } /* 美学积累 */
+#box4 { background-color: #EEAA80; border-color: #EEAA80; } /* 设计作品整理 */
+#box5 { background-color: #BB967F; border-color: #BB967F; } /* 图片储存 */
+#box6 { background-color: #DCBBA6; border-color: #DCBBA6; } /* 开发中 */
