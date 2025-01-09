@@ -1,6 +1,6 @@
 :root {
     --left-panel-width: 25%; /* 底图宽度，可以随时修改 */
-    --left-panel-height: 70vh; /* 底图高度，可以随时修改 */
+    --left-panel-height: 60vh; /* 底图高度，可以随时修改 */
 }
 
 body {
@@ -131,3 +131,47 @@ body {
 #box4 { background-color: #EEAA80; border-color: #EEAA80; } /* 设计作品整理 */
 #box5 { background-color: #BB967F; border-color: #BB967F; } /* 图片储存 */
 #box6 { background-color: #DCBBA6; border-color: #DCBBA6; } /* 开发中 */
+
+/* 响应式布局 - 针对小屏幕（如手机） */
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column; /* 将布局改为垂直排列 */
+        height: auto; /* 高度自适应 */
+    }
+
+    .left-panel {
+        width: 100%; /* 左侧图片占据整个宽度 */
+        height: 40vh; /* 高度调整为视口的 40% */
+        position: relative; /* 取消绝对定位 */
+        top: auto;
+        transform: none; /* 取消垂直居中 */
+        border-radius: 0; /* 取消圆角 */
+    }
+
+    .left-image {
+        width: 100%; /* 图片宽度填充整个容器 */
+        height: 100%; /* 图片高度填充整个容器 */
+        border-radius: 0; /* 取消圆角 */
+    }
+
+    .right-panel {
+        width: 100%; /* 右侧内容占据整个宽度 */
+        margin-left: 0; /* 取消左侧边距 */
+        padding: 10px; /* 减少内边距 */
+    }
+
+    .box {
+        width: calc(100% - 20px); /* 每个方块占据整个宽度，留出边距 */
+        margin: 10px 0; /* 减少方块之间的间距 */
+        height: auto; /* 高度自适应 */
+        border-radius: 20px; /* 圆角调整为较小值 */
+    }
+
+    .box-title {
+        font-size: 20px; /* 调整标题字体大小 */
+    }
+
+    .box-description {
+        font-size: 14px; /* 调整描述字体大小 */
+    }
+}
