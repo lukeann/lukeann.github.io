@@ -1,0 +1,117 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    overflow-x: hidden; /* 防止水平滚动 */
+}
+
+.container {
+    display: flex;
+    height: 100vh;
+}
+
+/* 左侧图片和自我介绍 */
+.left-panel {
+    width: 25%; /* 图片宽度调整为 1/4 */
+    position: fixed; /* 图片固定，不受滚动影响 */
+    height: 100vh;
+    overflow: hidden;
+}
+
+.left-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+}
+
+.intro-text {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: top 0.5s;
+    cursor: pointer;
+}
+
+.intro-text.active {
+    top: 0;
+}
+
+.right-panel {
+    width: 75%; /* 右侧宽度调整为 3/4 */
+    margin-left: 25%; /* 与左侧图片对齐 */
+    display: flex;
+    flex-wrap: wrap;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.box {
+    width: calc(33.33% - 40px); /* 每行三个方块，留出边距 */
+    margin: 20px;
+    height: calc(50% - 40px); /* 两行方块，留出边距 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 4px solid; /* 描边加粗 */
+    border-radius: 15px;
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    color: #f0f0f0; /* 字体颜色改为偏白色 */
+}
+
+.box:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.box-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.box-description {
+    font-size: 14px;
+    color: #f0f0f0; /* 字体颜色改为偏白色 */
+    text-align: center;
+}
+
+/* 马卡通色系填充 */
+#box1 { background-color: #FF6F61; border-color: #FF3B2F; }
+#box2 { background-color: #6B5B95; border-color: #4A3C6E; }
+#box3 { background-color: #88B04B; border-color: #6A8F3B; }
+#box4 { background-color: #F7CAC9; border-color: #F4A6A3; }
+#box5 { background-color: #92A8D1; border-color: #6E8CC3; }
+#box6 { background-color: #955251; border-color: #733A39; }
+
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column;
+    }
+    .left-panel {
+        width: 100%;
+        height: 200px;
+    }
+    .right-panel {
+        width: 100%;
+        margin-left: 0;
+    }
+    .box {
+        width: calc(50% - 40px); /* 在小屏幕上每行两个方块 */
+    }
+}
+
+@media (max-width: 480px) {
+    .box {
+        width: calc(100% - 40px); /* 在更小的屏幕上每行一个方块 */
+    }
+}
