@@ -208,10 +208,17 @@
         .tag-yellow { background: var(--tag-yellow-bg); color: var(--tag-yellow-text); }
 
         /* 复选框 */
-        .checkbox-wrapper { display: flex; justify-content: center; }
+        .checkbox-wrapper { display: flex; justify-content: center; position: relative; align-items: center; }
         input[type="checkbox"] {
             width: 1.5rem; height: 1.5rem; cursor: pointer; accent-color: var(--ikea-blue); margin: 0;
         }
+        .checkbox-revert { 
+            position: absolute; right: -0.5rem; opacity: 0; cursor: pointer; color: #ccc; 
+            font-size: 0.875rem; transition: opacity 0.2s; 
+        }
+        .checkbox-wrapper:hover .checkbox-revert { opacity: 1; }
+        .checkbox-revert:hover { color: #d32f2f; transform: scale(1.2); }
+        @media (prefers-color-scheme: dark) { .checkbox-revert:hover { color: #ff5252; } }
 
         /* 拖拽 & 删除 */
         .row-action { opacity: 0; cursor: pointer; color: #ccc; font-size: 1.25rem; text-align: center; transition: opacity 0.2s; }
@@ -549,7 +556,10 @@
                 let content = '';
                 // 渲染逻辑
                 if (typeof cell === 'boolean') {
-                    content = `<div class="checkbox-wrapper"><input type="checkbox" ${cell ? 'checked' : ''} onchange="updateData(${rIdx}, ${cIdx}, this.checked)"></div>`;
+                    content = `<div class="checkbox-wrapper">
+                        <input type="checkbox" ${cell ? 'checked' : ''} onchange="updateData(${rIdx}, ${cIdx}, this.checked)">
+                        <i class="fas fa-undo checkbox-revert" title="恢复为文字" onclick="revertToText(${rIdx}, ${cIdx})"></i>
+                    </div>`;
                 } else if (cell === "N/A") {
                     content = `<div style="text-align:center; opacity:0.5;">—</div>`;
                 } else {
@@ -635,6 +645,16 @@
         if (typeof val === 'boolean' || (typeof val === 'string' && (val.includes("寄拍") || val.includes("置换")))) renderTable();
         calculateTotals();
         triggerAutoSave(); // 触发自动保存
+    }
+
+    window.revertToText = (r, c) => {
+        if(confirm("确定要取消复选框，恢复为普通文字吗？")) {
+            data[r].cells[c] = "";
+            saveLocal();
+            renderTable();
+            calculateTotals();
+            triggerAutoSave();
+        }
     }
 
     // 行拖拽逻辑
