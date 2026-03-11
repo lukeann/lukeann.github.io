@@ -219,6 +219,15 @@
         .row-action:hover { color: #d32f2f; transform: scale(1.2); }
         @media (prefers-color-scheme: dark) { .row-action:hover { color: #ff5252; } }
         
+        .col-action { opacity: 0; cursor: pointer; color: #ccc; font-size: 1rem; transition: opacity 0.2s; }
+        th:hover .col-action { opacity: 1; }
+        .col-action:hover { color: #d32f2f; transform: scale(1.2); }
+        @media (prefers-color-scheme: dark) { .col-action:hover { color: #ff5252; } }
+        
+        .col-move-btn { cursor: pointer; font-size: 0.875rem; color: var(--border-color); padding: 0.125rem; }
+        .col-move-btn:hover { color: var(--ikea-blue); }
+        .col-move-btn.disabled { opacity: 0.2; cursor: not-allowed; }
+        
         .drag-handle { cursor: grab; color: var(--border-color); margin-right: 0.5rem; font-size: 0.875rem; }
         tr:hover .drag-handle { color: var(--text-secondary); }
 
@@ -518,7 +527,14 @@
         headers.forEach((h, i) => {
             trH.innerHTML += `
                 <th class="draggable">
-                    <div contenteditable="true" onblur="updateHeader(${i}, this.innerText)">${h}</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
+                        <div style="display:flex; flex-direction:column; gap:0.125rem;">
+                            <i class="fas fa-caret-left col-move-btn ${i === 0 ? 'disabled' : ''}" onclick="${i === 0 ? '' : `moveColumn(${i}, -1)`}" title="左移"></i>
+                            <i class="fas fa-caret-right col-move-btn ${i === headers.length - 1 ? 'disabled' : ''}" onclick="${i === headers.length - 1 ? '' : `moveColumn(${i}, 1)`}" title="右移"></i>
+                        </div>
+                        <div style="flex:1;" contenteditable="true" onblur="updateHeader(${i}, this.innerText)">${h}</div>
+                        <i class="fas fa-times col-action" onclick="deleteColumn(${i})" title="删除列"></i>
+                    </div>
                 </th>`;
         });
         trH.innerHTML += `<th style="width:3.125rem"></th>`;
@@ -527,7 +543,7 @@
         // 表体
         data.forEach((row, rIdx) => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><span class="drag-handle" draggable="true" ondragend="onDragEnd()"><i class="fas fa-bars"></i></span> ${rIdx + 1}</td>`;
+            tr.innerHTML = `<td><span class="drag-handle" draggable="true" ondragstart="onDragStart(event, ${rIdx})" ondragover="onDragOver(event)" ondrop="onDrop(event, ${rIdx})"><i class="fas fa-bars"></i></span> ${rIdx + 1}</td>`;
             
             row.cells.forEach((cell, cIdx) => {
                 let content = '';
@@ -611,9 +627,56 @@
         triggerAutoSave(); // 触发自动保存
     }
 
-    window.updateHeader = (i, val) => {
-        headers[i] = val;
+    // 行拖拽逻辑
+    let draggedRowIdx = null;
+    window.onDragStart = (e, idx) => {
+        draggedRowIdx = idx;
+        e.dataTransfer.effectAllowed = 'move';
+    }
+    window.onDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    }
+    window.onDrop = (e, idx) => {
+        e.preventDefault();
+        if (draggedRowIdx === null || draggedRowIdx === idx) return;
+        const draggedRow = data.splice(draggedRowIdx, 1)[0];
+        data.splice(idx, 0, draggedRow);
         saveLocal();
+        renderTable();
+        triggerAutoSave();
+        draggedRowIdx = null;
+    }
+
+    window.updateHeader = (i, val) => {
+        if (val.trim() === '') {
+            val = '未命名列';
+        }
+        headers[i] = val;
+        
+        // 智能推断列类型转换
+        const isCheckboxName = val.includes("已") || val.includes("完成");
+        const hasTextData = data.some(r => typeof r.cells[i] === 'string' && r.cells[i] !== "" && r.cells[i] !== "N/A");
+        const hasBooleanData = data.some(r => typeof r.cells[i] === 'boolean');
+        
+        if (isCheckboxName && !hasBooleanData) {
+            if (confirm(`是否将【${val}】列转换为复选框（打勾）？（原有的文字内容会被清空）`)) {
+                data.forEach(r => {
+                    if (r.cells[i] !== "N/A") r.cells[i] = false;
+                });
+            }
+        } else if (!isCheckboxName && hasBooleanData) {
+            if (confirm(`是否将【${val}】列转换为普通文本？（复选框将被移除）`)) {
+                data.forEach(r => {
+                    if (typeof r.cells[i] === 'boolean') {
+                        r.cells[i] = r.cells[i] ? "完成" : "";
+                    }
+                });
+            }
+        }
+        
+        saveLocal();
+        renderTable();
         triggerAutoSave();
     }
 
@@ -632,11 +695,43 @@
         const name = prompt("列名:", "新列");
         if(name) {
             headers.push(name);
-            data.forEach(r => r.cells.push(""));
+            const isCheckbox = name.includes("已") || name.includes("完成");
+            data.forEach(r => r.cells.push(isCheckbox ? false : ""));
             saveLocal();
             renderTable();
             triggerAutoSave();
         }
+    }
+
+    window.deleteColumn = (i) => {
+        if(confirm(`确定删除列【${headers[i]}】吗?`)) {
+            headers.splice(i, 1);
+            data.forEach(r => r.cells.splice(i, 1));
+            saveLocal();
+            renderTable();
+            calculateTotals();
+            triggerAutoSave();
+        }
+    }
+
+    window.moveColumn = (i, direction) => {
+        if (i + direction < 0 || i + direction >= headers.length) return;
+        
+        // 交换 headers
+        const tempHeader = headers[i];
+        headers[i] = headers[i + direction];
+        headers[i + direction] = tempHeader;
+        
+        // 交换 data
+        data.forEach(r => {
+            const tempCell = r.cells[i];
+            r.cells[i] = r.cells[i + direction];
+            r.cells[i + direction] = tempCell;
+        });
+        
+        saveLocal();
+        renderTable();
+        triggerAutoSave();
     }
 
     window.deleteRow = (i) => {
