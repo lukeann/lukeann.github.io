@@ -620,9 +620,19 @@
     }
 
     window.updateData = (r, c, val) => {
+        // 当输入文字“是”或“否”时，自动转换为复选框(布尔值)
+        if (typeof val === 'string') {
+            const text = val.trim();
+            if (text === '是') {
+                val = true;
+            } else if (text === '否') {
+                val = false;
+            }
+        }
+        
         data[r].cells[c] = val;
         saveLocal();
-        if (typeof val === 'string' && (val.includes("寄拍") || val.includes("置换"))) renderTable();
+        if (typeof val === 'boolean' || (typeof val === 'string' && (val.includes("寄拍") || val.includes("置换")))) renderTable();
         calculateTotals();
         triggerAutoSave(); // 触发自动保存
     }
