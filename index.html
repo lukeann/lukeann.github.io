@@ -173,26 +173,49 @@
 
         /* 表格 */
         .table-wrapper {
-            overflow-x: auto;
+            overflow: auto;
+            max-height: 75vh;
             border-radius: 0.5rem;
-            padding-bottom: 1.25rem;
+            padding-bottom: 0;
             background: var(--bg-card);
             border: 1px solid var(--border-color);
         }
 
         table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 1rem; min-width: 62.5rem; }
 
+        tr { background-color: var(--bg-card); }
+
         th {
             text-align: left; padding: 1.125rem 1rem; font-weight: 800; color: var(--text-secondary);
             border-bottom: 0.125rem solid var(--text-primary); white-space: nowrap; position: sticky; top: 0; background: var(--bg-card); z-index: 10;
+            background-clip: padding-box;
         }
 
         td {
-            padding: 1rem; border-bottom: 1px solid var(--border-color); vertical-align: top; background: var(--bg-card);
-            color: var(--text-primary);
+            padding: 1rem; border-bottom: 1px solid var(--border-color); vertical-align: top;
+            color: var(--text-primary); background-color: inherit;
         }
 
-        tr:hover td { background-color: var(--bg-table-hover); }
+        tr:hover { background-color: var(--bg-table-hover); }
+
+        /* 冻结首列和第二列 */
+        th:nth-child(1), td:nth-child(1) {
+            position: sticky; left: 0; z-index: 5;
+            width: 3.5rem; min-width: 3.5rem; max-width: 3.5rem; padding-left: 0.5rem; padding-right: 0.5rem;
+        }
+        th:nth-child(2), td:nth-child(2) {
+            position: sticky; left: 3.5rem; z-index: 5;
+        }
+        /* 为第二列右侧添加阴影，表示浮动层 */
+        th:nth-child(2)::after, td:nth-child(2)::after {
+            content: ''; position: absolute; top: 0; right: -5px; bottom: 0; width: 5px;
+            background: linear-gradient(to right, rgba(0,0,0,0.05), transparent); pointer-events: none;
+        }
+        @media (prefers-color-scheme: dark) { 
+            th:nth-child(2)::after, td:nth-child(2)::after { background: linear-gradient(to right, rgba(0,0,0,0.2), transparent); }
+        }
+        th:nth-child(1), th:nth-child(2) { z-index: 15; background-color: var(--bg-card); }
+        tr:hover th:nth-child(1), tr:hover th:nth-child(2) { background-color: var(--bg-card); }
 
         /* 编辑器 & 控件 */
         .editable { min-height: 1.5rem; cursor: text; padding: 0.25rem; border-radius: 0.25rem; transition: background 0.2s; }
@@ -480,28 +503,45 @@
     window.openAppearanceModal = () => document.getElementById('appearanceModal').classList.add('active');
 
     // 默认数据
-    const defaultHeaders = ["品牌名称", "合作方式", "价格", "款式/要求", "截止日期", "已收到", "已拍摄", "已发布", "已寄回", "已结款"];
+    const defaultHeaders = ["品牌名称", "合作方式", "价格", "淘宝垫付", "本金已返", "款式/要求", "截止日期", "已收到", "已拍摄", "已发布", "已寄回", "已结款"];
     const defaultData = [
-        {id: 1, cells: ["INHERWORDS", "置换", "置换", "长袖T恤", "3月内", false, false, false, false, false]},
-        {id: 2, cells: ["INHERWORDS", "置换", "置换", "黑色衬衫长袖", "3月内", false, false, false, false, false]},
-        {id: 3, cells: ["药九玫柒 (1997邮政局)", "置换", "置换", "印花短袖", "待定", true, true, false, "N/A", "N/A"]},
-        {id: 4, cells: ["WhyBerry", "置换", "置换", "红色外套", "3月内", false, false, false, "N/A", "N/A"]},
-        {id: 5, cells: ["Bill conch", "置换", "置换", "无袖蓝色裙子", "待定", false, false, false, "N/A", "N/A"]},
-        {id: 6, cells: ["暴走蓝鲸", "寄拍", "120", "红格子衬衫", "3.25前", false, false, false, false, false]},
-        {id: 7, cells: ["MR MUKOK", "寄拍", "120", "亚麻衬衫 (出片5天寄回)", "3月内", true, false, false, false, false]},
-        {id: 8, cells: ["mysugarbabe (MSB)", "置换", "置换", "蕾丝风半裙", "待定", false, false, false, "N/A", "N/A"]},
-        {id: 9, cells: ["RPB Brand", "寄拍", "120", "裤子+上衣", "3月底前", false, false, false, false, false]},
-        {id: 10, cells: ["living town", "寄拍", "130", "无袖格子裙", "3月内", false, false, false, false, false]},
-        {id: 11, cells: ["fisherman store", "置换", "置换", "马甲衬衫", "3月内", false, false, false, false, false]},
-        {id: 12, cells: ["round ship", "寄拍", "120", "刺绣吊带裙", "3月内", true, true, false, false, false]},
-        {id: 13, cells: ["gtrg", "寄拍", "150", "黑色polo＋短裤", "3月内", false, false, false, false, false]},
-        {id: 14, cells: ["LRRE", "置换", "置换", "黑色半裙", "3月内", false, false, false, false, false]}
+        {id: 1, cells: ["INHERWORDS", "置换", "置换", "", false, "长袖T恤", "3月内", false, false, false, false, false]},
+        {id: 2, cells: ["INHERWORDS", "置换", "置换", "", false, "黑色衬衫长袖", "3月内", false, false, false, false, false]},
+        {id: 3, cells: ["药九玫柒 (1997邮政局)", "置换", "置换", "", false, "印花短袖", "待定", true, true, false, "N/A", "N/A"]},
+        {id: 4, cells: ["WhyBerry", "置换", "置换", "", false, "红色外套", "3月内", false, false, false, "N/A", "N/A"]},
+        {id: 5, cells: ["Bill conch", "置换", "置换", "", false, "无袖蓝色裙子", "待定", false, false, false, "N/A", "N/A"]},
+        {id: 6, cells: ["暴走蓝鲸", "寄拍", "120", "", false, "红格子衬衫", "3.25前", false, false, false, false, false]},
+        {id: 7, cells: ["MR MUKOK", "寄拍", "120", "", false, "亚麻衬衫 (出片5天寄回)", "3月内", true, false, false, false, false]},
+        {id: 8, cells: ["mysugarbabe (MSB)", "置换", "置换", "", false, "蕾丝风半裙", "待定", false, false, false, "N/A", "N/A"]},
+        {id: 9, cells: ["RPB Brand", "寄拍", "120", "", false, "裤子+上衣", "3月底前", false, false, false, false, false]},
+        {id: 10, cells: ["living town", "寄拍", "130", "", false, "无袖格子裙", "3月内", false, false, false, false, false]},
+        {id: 11, cells: ["fisherman store", "置换", "置换", "", false, "马甲衬衫", "3月内", false, false, false, false, false]},
+        {id: 12, cells: ["round ship", "寄拍", "120", "", false, "刺绣吊带裙", "3月内", true, true, false, false, false]},
+        {id: 13, cells: ["gtrg", "寄拍", "150", "", false, "黑色polo＋短裤", "3月内", false, false, false, false, false]},
+        {id: 14, cells: ["LRRE", "置换", "置换", "", false, "黑色半裙", "3月内", false, false, false, false, false]}
     ];
 
     // 状态
     let headers = JSON.parse(localStorage.getItem('headers')) || defaultHeaders;
     let data = JSON.parse(localStorage.getItem('data')) || defaultData;
     let cloudConfig = JSON.parse(localStorage.getItem('cloudConfig')) || { apiKey: '', binId: '' };
+
+    // 数据迁移：自动为老用户增加“淘宝垫付”和“本金已返”两列
+    if (!headers.includes("淘宝垫付")) {
+        let idx = headers.indexOf("价格");
+        if(idx === -1) idx = headers.length - 1;
+        headers.splice(idx + 1, 0, "淘宝垫付");
+        data.forEach(r => r.cells.splice(idx + 1, 0, ""));
+    }
+    if (!headers.includes("本金已返")) {
+        let idx = headers.indexOf("淘宝垫付");
+        if(idx === -1) idx = headers.length - 1;
+        headers.splice(idx + 1, 0, "本金已返");
+        data.forEach(r => r.cells.splice(idx + 1, 0, false));
+    }
+    // 保存迁移后的数据
+    localStorage.setItem('headers', JSON.stringify(headers));
+    localStorage.setItem('data', JSON.stringify(data));
 
     const table = document.getElementById('mainTable');
     const toast = document.getElementById('toast');
