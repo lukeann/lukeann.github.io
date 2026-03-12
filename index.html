@@ -526,22 +526,46 @@
     let data = JSON.parse(localStorage.getItem('data')) || defaultData;
     let cloudConfig = JSON.parse(localStorage.getItem('cloudConfig')) || { apiKey: '', binId: '' };
 
-    // 数据迁移：自动为老用户增加“淘宝垫付”和“本金已返”两列
-    if (!headers.includes("淘宝垫付")) {
-        let idx = headers.indexOf("价格");
-        if(idx === -1) idx = headers.length - 1;
-        headers.splice(idx + 1, 0, "淘宝垫付");
-        data.forEach(r => r.cells.splice(idx + 1, 0, ""));
+    function ensureRequiredColumns() {
+        let changed = false;
+        // 数据迁移：自动为老用户增加“淘宝垫付”和“本金已返”两列
+        if (!headers.includes("淘宝垫付")) {
+            let idx = headers.indexOf("价格");
+            if(idx === -1) idx = headers.length - 1;
+            headers.splice(idx + 1, 0, "淘宝垫付");
+            data.forEach(r => r.cells.splice(idx + 1, 0, ""));
+            changed = true;
+        }
+        if (!headers.includes("本金已返")) {
+            let idx = headers.indexOf("淘宝垫付");
+            if(idx === -1) idx = headers.length - 1;
+            headers.splice(idx + 1, 0, "本金已返");
+            // 根据“淘宝垫付”是否为“是”来决定“本金已返”的初始值
+            let tbIdx = headers.indexOf("淘宝垫付");
+            data.forEach(r => {
+                let tbVal = r.cells[tbIdx];
+                r.cells.splice(idx + 1, 0, tbVal === "是" ? false : "—");
+            });
+            changed = true;
+        }
+        
+        // 确保现有的"淘宝垫付"为文本，避免被误转为布尔值
+        let tbIdx = headers.indexOf("淘宝垫付");
+        if (tbIdx > -1) {
+            data.forEach(r => {
+                if (r.cells[tbIdx] === true) { r.cells[tbIdx] = "是"; changed = true; }
+                if (r.cells[tbIdx] === false) { r.cells[tbIdx] = "—"; changed = true; }
+            });
+        }
+        
+        if (changed) {
+            localStorage.setItem('headers', JSON.stringify(headers));
+            localStorage.setItem('data', JSON.stringify(data));
+        }
     }
-    if (!headers.includes("本金已返")) {
-        let idx = headers.indexOf("淘宝垫付");
-        if(idx === -1) idx = headers.length - 1;
-        headers.splice(idx + 1, 0, "本金已返");
-        data.forEach(r => r.cells.splice(idx + 1, 0, false));
-    }
-    // 保存迁移后的数据
-    localStorage.setItem('headers', JSON.stringify(headers));
-    localStorage.setItem('data', JSON.stringify(data));
+
+    // 初始执行一次迁移
+    ensureRequiredColumns();
 
     const table = document.getElementById('mainTable');
     const toast = document.getElementById('toast');
@@ -600,8 +624,8 @@
                         <input type="checkbox" ${cell ? 'checked' : ''} onchange="updateData(${rIdx}, ${cIdx}, this.checked)">
                         <i class="fas fa-undo checkbox-revert" title="恢复为文字" onclick="revertToText(${rIdx}, ${cIdx})"></i>
                     </div>`;
-                } else if (cell === "N/A") {
-                    content = `<div style="text-align:center; opacity:0.5;">—</div>`;
+                } else if (cell === "N/A" || cell === "—") {
+                    content = `<div style="text-align:center; opacity:0.5;" contenteditable="true" onblur="updateData(${rIdx}, ${cIdx}, this.innerText)">${cell}</div>`;
                 } else {
                     let display = cell;
                     // 样式增强
@@ -670,8 +694,10 @@
     }
 
     window.updateData = (r, c, val) => {
-        // 当输入文字“是”或“否”时，自动转换为复选框(布尔值)
-        if (typeof val === 'string') {
+        const isTaobaoAdvance = headers[c] === "淘宝垫付";
+        
+        // 当输入文字“是”或“否”时，自动转换为复选框(布尔值)，但“淘宝垫付”列除外
+        if (typeof val === 'string' && !isTaobaoAdvance) {
             const text = val.trim();
             if (text === '是') {
                 val = true;
@@ -680,9 +706,32 @@
             }
         }
         
+        // 如果是“淘宝垫付”列，输入不是"是"，则默认给"——"
+        if (isTaobaoAdvance && typeof val === 'string') {
+            const text = val.trim();
+            if (text === '是' || text === '否') {
+                val = text === '是' ? '是' : '—';
+            }
+        }
+        
         data[r].cells[c] = val;
+        
+        // 当“淘宝垫付”改变时，重置其对应的“本金已返”
+        if (isTaobaoAdvance) {
+            let returnIdx = headers.indexOf("本金已返");
+            if (returnIdx > -1) {
+                if (val !== '是') {
+                    data[r].cells[returnIdx] = "—"; // 不是垫付，本金已返直接置为 "—"
+                } else {
+                    if (data[r].cells[returnIdx] === "—" || data[r].cells[returnIdx] === "") {
+                        data[r].cells[returnIdx] = false; // 变回复选框
+                    }
+                }
+            }
+        }
+        
         saveLocal();
-        if (typeof val === 'boolean' || (typeof val === 'string' && (val.includes("寄拍") || val.includes("置换")))) renderTable();
+        renderTable();
         calculateTotals();
         triggerAutoSave(); // 触发自动保存
     }
@@ -753,7 +802,11 @@
     window.addRow = () => {
         const newRow = {
             id: Date.now(),
-            cells: headers.map(h => (h.includes("已") || h.includes("完成")) ? false : "")
+            cells: headers.map(h => {
+                if (h === "淘宝垫付") return "—";
+                if (h === "本金已返") return "—";
+                return (h.includes("已") || h.includes("完成")) ? false : "";
+            })
         };
         data.push(newRow);
         saveLocal();
@@ -899,6 +952,7 @@
                 if (remote.data && remote.data.length > 0) {
                     headers = remote.headers;
                     data = remote.data;
+                    ensureRequiredColumns(); // 确保从云端拉取的数据也有这两列
                     saveLocal(); 
                     renderTable();
                     calculateTotals();
