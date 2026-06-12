@@ -639,6 +639,7 @@
           <button id="addColumnBtn" class="btn secondary">加列</button>
           <button id="aiBtn" class="btn secondary">AI解析</button>
           <button id="addMonthBtn" class="btn secondary">加月份</button>
+          <button id="migrateBtn" class="btn danger hidden">迁移3月→6月</button>
           <button id="settingsBtn" class="btn secondary">设置</button>
         </div>
       </div>
@@ -814,6 +815,7 @@
       addColumnBtn: document.getElementById("addColumnBtn"),
       aiBtn: document.getElementById("aiBtn"),
       addMonthBtn: document.getElementById("addMonthBtn"),
+      migrateBtn: document.getElementById("migrateBtn"),
       settingsBtn: document.getElementById("settingsBtn"),
       aiDrawer: document.getElementById("aiDrawer"),
       chatInput: document.getElementById("chatInput"),
@@ -884,6 +886,18 @@
       els.closeSettingsBtn.addEventListener("click", closeSettings);
 
       els.addMonthBtn.addEventListener("click", addMonth);
+
+      els.migrateBtn.addEventListener("click", () => {
+        if (!confirm("将3月全部数据迁移到6月？3月将被清空。")) return;
+        const mar = state.months["3月"] || [];
+        const jun = state.months["6月"] || [];
+        state.months["6月"] = [...jun, ...mar];
+        state.months["3月"] = [];
+        state.activeMonth = "6月";
+        localStorage.setItem("migrated_march_to_june", "true");
+        saveAndRender();
+        toast(`已迁移 ${mar.length} 条到6月`);
+      });
 
       els.parseBtn.addEventListener("click", async () => {
         const text = els.chatInput.value.trim();
@@ -991,6 +1005,8 @@
       document.addEventListener("input", (event) => {
         const cell = event.target.closest("[data-row-id][data-field]");
         if (!cell) return;
+        // 跳过 select 和 checkbox，它们由 change 事件处理
+        if (event.target.tagName === "SELECT" || event.target.type === "checkbox") return;
 
         updateRow(cell.dataset.rowId, cell.dataset.field, cell.textContent.trim());
         saveAndRender(false);
@@ -1210,6 +1226,14 @@
       renderMonths();
       renderTable();
       renderStats();
+      // 显示/隐藏迁移按钮
+      const marLen = (state.months["3月"] || []).length;
+      const junLen = (state.months["6月"] || []).length;
+      if (marLen > 0 && junLen === 0) {
+        els.migrateBtn.classList.remove("hidden");
+      } else {
+        els.migrateBtn.classList.add("hidden");
+      }
       updateSyncStatus(navigator.onLine ? "waiting" : "offline");
     }
 
