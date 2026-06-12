@@ -646,6 +646,8 @@
     const PASSWORD = "1234";
     const STORAGE_KEY = "pr_tracker_v2";
     const SETTINGS_KEY = "pr_tracker_settings_v2";
+    const OLD_STORAGE_KEY = "pr_tracker";
+    const OLD_SETTINGS_KEY = "pr_tracker_settings";
 
     const defaultColumns = [
       { key: "brandName", label: "品牌名称", type: "text" },
@@ -825,23 +827,84 @@
     }
 
     function loadState() {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(OLD_STORAGE_KEY);
       if (!raw) return structuredClone(defaultState);
 
       try {
         const parsed = JSON.parse(raw);
-        return {
-          activeMonth: parsed.activeMonth || "3月",
-          columns: parsed.columns && parsed.columns.length ? parsed.columns : defaultColumns,
-          months: parsed.months || structuredClone(defaultState.months)
-        };
+        return normalizeState(parsed);
       } catch {
         return structuredClone(defaultState);
       }
     }
 
+    function normalizeState(input) {
+      const source = input || {};
+      const months = source.months || {};
+      const normalizedMonths = {};
+
+      Object.keys(months).forEach((month) => {
+        normalizedMonths[month] = (months[month] || []).map((row) => normalizeRow(row));
+      });
+
+      if (!normalizedMonths["3月"]) normalizedMonths["3月"] = [];
+      if (!normalizedMonths["6月"]) normalizedMonths["6月"] = [];
+
+      return {
+        activeMonth: source.activeMonth || "3月",
+        columns: source.columns && source.columns.length ? source.columns : defaultColumns,
+        months: normalizedMonths
+      };
+    }
+
+    function normalizeRow(row) {
+      const isNewRow = Object.prototype.hasOwnProperty.call(row, "brandName");
+
+      if (isNewRow) {
+        const normalized = {
+          id: row.id || createId()
+        };
+
+        defaultColumns.forEach((column) => {
+          if (column.type === "check") {
+            normalized[column.key] = Boolean(row[column.key]);
+          } else {
+            normalized[column.key] = row[column.key] || "";
+          }
+        });
+
+        return {
+          ...row,
+          ...normalized
+        };
+      }
+
+      return {
+        id: row.id || createId(),
+        brandName: row.name || row.brand || row.blogger || "",
+        cooperationType: row.type || "现金",
+        price: row.amount || row.price || "",
+        taobaoAdvance: "",
+        principalReturned: false,
+        styleRequirement: row.project || row.note || "",
+        deadline: row.date || "",
+        received: /已收到|已签收|收到/.test(row.status || row.note || ""),
+        shot: /已拍摄|已拍|拍完/.test(row.status || row.note || ""),
+        published: /已发布|已发笔记|已完成|完成/.test(row.status || row.note || ""),
+        returned: /已寄回|已退回|寄回/.test(row.status || row.note || ""),
+        sold: /已出掉|已卖|卖掉|出掉/.test(row.status || row.note || ""),
+        soldPrice: "",
+        settled: /已到账|已结款|已完成|结清/.test(row.status || row.note || "")
+      };
+    }
+
+    function createId() {
+      return crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
+    }
+
     function loadSettings() {
-      const raw = localStorage.getItem(SETTINGS_KEY);
+      const raw = localStorage.getItem(SETTINGS_KEY) || localStorage.getItem(OLD_SETTINGS_KEY);
+
       if (!raw) {
         return {
           masterKey: "",
@@ -853,7 +916,14 @@
       }
 
       try {
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        return {
+          masterKey: parsed.masterKey || "",
+          binId: parsed.binId || "",
+          theme: parsed.theme || "auto",
+          fontSize: parsed.fontSize || 16,
+          pendingSync: parsed.pendingSync || false
+        };
       } catch {
         return {
           masterKey: "",
@@ -1151,10 +1221,11 @@
         const data = await res.json();
 
         if (data.record && data.record.months) {
-          state = data.record;
+          state = normalizeState(data.record);
           saveState();
           render();
           updateSyncStatus("done");
+          toast("已同步云端数据");
         }
       } catch {
         updateSyncStatus("error");
