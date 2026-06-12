@@ -1047,7 +1047,12 @@
       els.login.classList.add("hidden");
       els.app.classList.remove("hidden");
       render();
-      loadFromCloud();
+      // 如果本地为空，从 GitHub 数据文件加载
+      if (!localStorage.getItem(STORAGE_KEY) && !localStorage.getItem(OLD_STORAGE_KEY)) {
+        loadFromGitHub();
+      } else {
+        loadFromCloud();
+      }
     }
 
     function loadState() {
@@ -1747,6 +1752,41 @@
     function guessStyleRequirement(text) {
       const match = text.match(/(?:款式|要求|颜色|尺码)[:：\s]*([^，。,；;]+)/);
       return match ? match[1].trim() : "";
+    }
+
+    async function loadFromGitHub() {
+      try {
+        const res = await fetch(
+          "https://raw.githubusercontent.com/lukeann/lukeann.github.io/master/data.json"
+        );
+        if (!res.ok) { loadFromCloud(); return; }
+
+        const data = await res.json();
+        if (data && data.months) {
+          state = normalizeState(data);
+
+          if (data._settings) {
+            const cs = data._settings;
+            settings.masterKey = cs.masterKey || "";
+            settings.binId = cs.binId || "";
+            settings.aiApiUrl = cs.aiApiUrl || "";
+            settings.aiApiKey = cs.aiApiKey || "";
+            settings.aiModel = cs.aiModel || "";
+            settings.theme = cs.theme || "auto";
+            settings.fontSize = cs.fontSize || 16;
+            saveSettings();
+          }
+
+          saveState();
+          render();
+          updateSyncStatus("done");
+          toast("已从 GitHub 加载数据");
+        } else {
+          loadFromCloud();
+        }
+      } catch {
+        loadFromCloud();
+      }
     }
 
     function scheduleSync() {

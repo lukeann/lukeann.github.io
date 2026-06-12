@@ -1,0 +1,33 @@
+{
+  "activeMonth": "6月",
+  "columns": [
+    { "key": "brandName", "label": "品牌名称", "type": "text" },
+    { "key": "cooperationType", "label": "合作方式", "type": "select", "options": ["寄拍", "置换", "送拍", "报备", "现金", "其他"] },
+    { "key": "price", "label": "价格", "type": "money" },
+    { "key": "taobaoAdvance", "label": "淘宝垫付", "type": "money" },
+    { "key": "principalReturned", "label": "本金已返", "type": "check" },
+    { "key": "styleRequirement", "label": "款式/要求", "type": "text" },
+    { "key": "deadline", "label": "截止日期", "type": "text" },
+    { "key": "received", "label": "已收到", "type": "check" },
+    { "key": "shot", "label": "已拍摄", "type": "check" },
+    { "key": "published", "label": "已发布", "type": "check" },
+    { "key": "returned", "label": "已寄回", "type": "check" },
+    { "key": "sold", "label": "已出掉", "type": "check" },
+    { "key": "soldPrice", "label": "卖出价格", "type": "money" },
+    { "key": "settled", "label": "已结款", "type": "check" },
+    { "key": "note", "label": "备注", "type": "text" }
+  ],
+  "months": {
+    "3月": [],
+    "6月": []
+  },
+  "_settings": {
+    "masterKey": "",
+    "binId": "",
+    "aiApiUrl": "https://api.deepseek.com/v1/chat/completions",
+    "aiApiKey": "",
+    "aiModel": "deepseek-chat",
+    "theme": "auto",
+    "fontSize": 16
+  }
+}
