@@ -191,8 +191,8 @@
 
     .brand h1 {
       margin: 0;
-      font-size: clamp(30px, 6vw, 58px);
-      letter-spacing: -0.08em;
+      font-size: clamp(32px, 5vw, 54px);
+      letter-spacing: -0.07em;
       line-height: 0.95;
     }
 
@@ -200,6 +200,7 @@
       margin: 10px 0 0;
       color: var(--muted);
       line-height: 1.5;
+      font-size: 14px;
     }
 
     .sync-pill {
@@ -262,31 +263,86 @@
       border-color: var(--primary);
     }
 
-    .stats {
+    .dashboard {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+      grid-template-columns: 1.2fr 1fr 1fr;
       gap: 14px;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
 
-    .stat {
+    .hero-stat {
+      position: relative;
+      overflow: hidden;
       background: var(--card);
       border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 18px;
+      border-radius: 18px;
+      padding: 20px;
       box-shadow: var(--shadow);
     }
 
-    .stat span {
+    .hero-stat::after {
+      content: "";
+      position: absolute;
+      right: -36px;
+      top: -36px;
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: rgba(37, 99, 235, 0.08);
+    }
+
+    .hero-stat span {
       display: block;
       color: var(--muted);
       font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .hero-stat strong {
+      display: block;
+      color: var(--text);
+      font-size: clamp(34px, 5vw, 52px);
+      line-height: 1;
+      letter-spacing: -0.06em;
+    }
+
+    .hero-stat small {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 10px;
+    }
+
+    .hero-stat.urgent strong {
+      color: var(--primary);
+    }
+
+    .mini-dashboard {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .mini-stat {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .mini-stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
       margin-bottom: 8px;
     }
 
-    .stat strong {
-      font-size: clamp(24px, 4vw, 36px);
-      letter-spacing: -0.05em;
+    .mini-stat strong {
+      color: var(--text);
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: -0.04em;
     }
 
     .panel {
@@ -514,6 +570,16 @@
       margin-top: 10px;
     }
 
+    @media (max-width: 900px) {
+      .dashboard {
+        grid-template-columns: 1fr;
+      }
+
+      .mini-dashboard {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
     @media (max-width: 760px) {
       .app {
         padding: 16px;
@@ -523,21 +589,30 @@
         display: grid;
       }
 
-      .stats {
+      .mini-dashboard {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
+      .hero-stat {
+        padding: 18px;
+      }
+
+      .hero-stat strong {
+        font-size: 42px;
+      }
+
       .panel-head {
-        align-items: flex-start;
+        align-items: stretch;
         flex-direction: column;
       }
 
       .actions {
-        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .actions .btn {
-        flex: 1;
+        width: 100%;
       }
 
       table,
@@ -627,22 +702,55 @@
 
     <nav id="monthTabs" class="month-row"></nav>
 
-    <section class="stats">
-      <div class="stat">
-        <span>总收入</span>
-        <strong id="totalIncome">¥0</strong>
+    <section class="dashboard">
+      <div class="hero-stat">
+        <span>本月待完成</span>
+        <strong id="todoCount">0</strong>
+        <small id="todoHint">暂无待处理事项</small>
       </div>
-      <div class="stat">
-        <span>寄拍/送拍收入</span>
-        <strong id="totalPending">¥0</strong>
+
+      <div class="hero-stat">
+        <span>待结款金额</span>
+        <strong id="unsettledAmount">¥0</strong>
+        <small>寄拍 / 送拍 / 现金未结款</small>
       </div>
-      <div class="stat">
-        <span>置换已卖出</span>
-        <strong id="totalConfirmed">¥0</strong>
+
+      <div class="hero-stat urgent">
+        <span>紧急事项</span>
+        <strong id="urgentCount">0</strong>
+        <small id="urgentHint">临近截止或逾期</small>
       </div>
-      <div class="stat">
-        <span>寄拍送拍 / 置换</span>
-        <strong id="giftCount">0 / 0</strong>
+    </section>
+
+    <section class="mini-dashboard">
+      <div class="mini-stat">
+        <span>总合作数</span>
+        <strong id="totalDeals">0</strong>
+      </div>
+
+      <div class="mini-stat">
+        <span>待发布</span>
+        <strong id="pendingPublish">0</strong>
+      </div>
+
+      <div class="mini-stat">
+        <span>待寄回</span>
+        <strong id="pendingReturn">0</strong>
+      </div>
+
+      <div class="mini-stat">
+        <span>垫付未返</span>
+        <strong id="advanceUnreturned">0</strong>
+      </div>
+
+      <div class="mini-stat">
+        <span>置换待出</span>
+        <strong id="exchangeUnsold">0</strong>
+      </div>
+
+      <div class="mini-stat">
+        <span>已完成</span>
+        <strong id="completedCount">0</strong>
       </div>
     </section>
 
@@ -856,10 +964,17 @@
       typeFilter: document.getElementById("typeFilter"),
       tableHead: document.getElementById("tableHead"),
       tableBody: document.getElementById("tableBody"),
-      totalIncome: document.getElementById("totalIncome"),
-      totalPending: document.getElementById("totalPending"),
-      totalConfirmed: document.getElementById("totalConfirmed"),
-      giftCount: document.getElementById("giftCount"),
+      todoCount: document.getElementById("todoCount"),
+      todoHint: document.getElementById("todoHint"),
+      unsettledAmount: document.getElementById("unsettledAmount"),
+      urgentCount: document.getElementById("urgentCount"),
+      urgentHint: document.getElementById("urgentHint"),
+      totalDeals: document.getElementById("totalDeals"),
+      pendingPublish: document.getElementById("pendingPublish"),
+      pendingReturn: document.getElementById("pendingReturn"),
+      advanceUnreturned: document.getElementById("advanceUnreturned"),
+      exchangeUnsold: document.getElementById("exchangeUnsold"),
+      completedCount: document.getElementById("completedCount"),
       addRowBtn: document.getElementById("addRowBtn"),
       addColumnBtn: document.getElementById("addColumnBtn"),
       aiBtn: document.getElementById("aiBtn"),
@@ -1385,20 +1500,140 @@
 
     function renderStats() {
       const rows = state.months[state.activeMonth] || [];
+      const metrics = calculateDashboardMetrics(rows);
 
-      const paidRows = rows.filter((r) => {
-        const t = String(r.cooperationType || "");
-        return t.includes("寄拍") || t.includes("送拍");
-      });
-      const exchangeRows = rows.filter((r) => String(r.cooperationType || "").includes("置换"));
+      els.todoCount.textContent = metrics.todoCount;
+      els.todoHint.textContent = metrics.todoCount ? "还有事项需要跟进" : "暂无待处理事项";
 
-      const paidIncome = paidRows.reduce((sum, r) => sum + toNumber(r.price), 0);
-      const soldIncome = exchangeRows.reduce((sum, r) => sum + (r.sold ? toNumber(r.soldPrice) : 0), 0);
+      els.unsettledAmount.textContent = formatMoney(metrics.unsettledAmount);
 
-      els.totalIncome.textContent = formatMoney(paidIncome + soldIncome);
-      els.totalPending.textContent = formatMoney(paidIncome);
-      els.totalConfirmed.textContent = formatMoney(soldIncome);
-      els.giftCount.textContent = `${paidRows.length} / ${exchangeRows.length}`;
+      els.urgentCount.textContent = metrics.urgentCount;
+      els.urgentHint.textContent = metrics.urgentCount ? "建议优先处理" : "暂无紧急事项";
+
+      els.totalDeals.textContent = metrics.totalDeals;
+      els.pendingPublish.textContent = metrics.pendingPublish;
+      els.pendingReturn.textContent = metrics.pendingReturn;
+      els.advanceUnreturned.textContent = metrics.advanceUnreturned;
+      els.exchangeUnsold.textContent = metrics.exchangeUnsold;
+      els.completedCount.textContent = metrics.completedCount;
+    }
+
+    function calculateDashboardMetrics(rows) {
+      const safeRows = Array.isArray(rows) ? rows : [];
+
+      const totalDeals = safeRows.length;
+
+      const pendingPublish = safeRows.filter((row) => {
+        return row.published !== true;
+      }).length;
+
+      const pendingReturn = safeRows.filter((row) => {
+        return needsReturn(row) && row.returned !== true;
+      }).length;
+
+      const advanceUnreturned = safeRows.filter((row) => {
+        return toNumber(row.taobaoAdvance) > 0 && row.principalReturned !== true;
+      }).length;
+
+      const exchangeUnsold = safeRows.filter((row) => {
+        return row.cooperationType === "置换" && row.sold !== true;
+      }).length;
+
+      const unsettledAmount = safeRows.reduce((sum, row) => {
+        if (!needsSettlement(row)) return sum;
+        if (row.settled === true) return sum;
+        return sum + toNumber(row.price);
+      }, 0);
+
+      const urgentCount = safeRows.filter(isUrgentRow).length;
+
+      const completedCount = safeRows.filter(isCompletedRow).length;
+
+      const todoCount = safeRows.filter((row) => {
+        return !isCompletedRow(row);
+      }).length;
+
+      return {
+        totalDeals,
+        pendingPublish,
+        pendingReturn,
+        advanceUnreturned,
+        exchangeUnsold,
+        unsettledAmount,
+        urgentCount,
+        completedCount,
+        todoCount
+      };
+    }
+
+    function needsReturn(row) {
+      if (!row) return false;
+      if (row.returned === "N/A") return false;
+      return row.cooperationType === "寄拍";
+    }
+
+    function needsSettlement(row) {
+      if (!row) return false;
+      if (row.settled === "N/A") return false;
+      return ["寄拍", "送拍", "现金", "报备"].includes(row.cooperationType);
+    }
+
+    function isCompletedRow(row) {
+      if (!row) return false;
+      const type = row.cooperationType;
+
+      if (type === "置换") {
+        return row.published === true && row.sold === true;
+      }
+      if (type === "寄拍") {
+        return row.published === true && row.returned === true && row.settled === true;
+      }
+      if (type === "送拍") {
+        return row.published === true && row.settled === true;
+      }
+      if (type === "现金" || type === "报备") {
+        return row.published === true && row.settled === true;
+      }
+      return row.published === true;
+    }
+
+    function isUrgentRow(row) {
+      if (!row || isCompletedRow(row)) return false;
+
+      const deadline = String(row.deadline || "").trim();
+      if (!deadline || deadline === "待定" || deadline === "N/A") return false;
+
+      if (/今天|今晚|明天|本周|这周|两小时|2小时|小时内|尽快|马上/.test(deadline + " " + (row.note || ""))) {
+        return true;
+      }
+
+      const parsedDate = parseLooseDeadline(deadline);
+      if (!parsedDate) return false;
+
+      const now = new Date();
+      const diffDays = Math.ceil((parsedDate.getTime() - startOfDay(now).getTime()) / 86400000);
+      return diffDays <= 3;
+    }
+
+    function parseLooseDeadline(value) {
+      const text = String(value || "").trim();
+      const currentYear = new Date().getFullYear();
+
+      let match = text.match(/(\d{1,2})[./-](\d{1,2})/);
+      if (match) {
+        return new Date(currentYear, Number(match[1]) - 1, Number(match[2]));
+      }
+
+      match = text.match(/(\d{1,2})月(\d{1,2})[日号]?/);
+      if (match) {
+        return new Date(currentYear, Number(match[1]) - 1, Number(match[2]));
+      }
+
+      return null;
+    }
+
+    function startOfDay(date) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
     }
 
     function addRow(data = {}) {
