@@ -678,7 +678,8 @@
       { key: "returned", label: "已寄回", type: "check" },
       { key: "sold", label: "已出掉", type: "check" },
       { key: "soldPrice", label: "卖出价格", type: "money" },
-      { key: "settled", label: "已结款", type: "check" }
+      { key: "settled", label: "已结款", type: "check" },
+      { key: "note", label: "备注", type: "text" }
     ];
 
     const defaultState = {
@@ -906,9 +907,14 @@
       if (!normalizedMonths["3月"]) normalizedMonths["3月"] = [];
       if (!normalizedMonths["6月"]) normalizedMonths["6月"] = [];
 
+      const columns = source.columns && source.columns.length ? source.columns : defaultColumns;
+      if (!columns.some(c => c.key === "note")) {
+        columns.push({ key: "note", label: "备注", type: "text" });
+      }
+
       return {
         activeMonth: source.activeMonth || "3月",
-        columns: source.columns && source.columns.length ? source.columns : defaultColumns,
+        columns,
         months: normalizedMonths
       };
     }
@@ -950,7 +956,8 @@
         returned: /已寄回|已退回|寄回/.test(row.status || row.note || ""),
         sold: /已出掉|已卖|卖掉|出掉/.test(row.status || row.note || ""),
         soldPrice: "",
-        settled: /已到账|已结款|已完成|结清/.test(row.status || row.note || "")
+        settled: /已到账|已结款|已完成|结清/.test(row.status || row.note || ""),
+        note: row.note || ""
       };
     }
 
@@ -1243,56 +1250,49 @@
     }
 
     function buildAIParserSystemPrompt() {
-      return `你是一个小红书 PR 合作数据整理助手。你的任务是从用户粘贴的微信聊天记录中，理解合作信息，并整理成表格数据。
-
-你必须只返回 JSON，不要返回解释、Markdown 或多余文字。
-
-返回格式必须是：
-{
-  "rows": [
-    {
-      "brandName": "",
-      "cooperationType": "",
-      "price": "",
-      "taobaoAdvance": "",
-      "principalReturned": false,
-      "styleRequirement": "",
-      "deadline": "",
-      "received": false,
-      "shot": false,
-      "published": false,
-      "returned": false,
-      "sold": false,
-      "soldPrice": "",
-      "settled": false
-    }
-  ]
-}
-
-字段解释：
-- brandName：品牌名称、店铺名、客户名或合作方名称。
-- cooperationType：合作方式，只能从「寄拍」「置换」「报备」「现金」「其他」中选择。
-- price：合作报价、推广费、广告费、稿费，只填写数字字符串，不要写货币符号。
-- taobaoAdvance：淘宝垫付、本金、拍下金额、订单垫付款，只填写数字字符串。
-- principalReturned：如果聊天中表示本金已返、垫付款已退、已返款，则为 true，否则 false。
-- styleRequirement：款式、颜色、尺码、内容要求、拍摄要求、笔记要求、寄回要求等。
-- deadline：截止日期、最晚发布时间、交稿时间。保留聊天里的日期表达即可。
-- received：如果已经收到货、签收、拿到样品，则为 true。
-- shot：如果已经拍摄、拍完、出图、素材完成，则为 true。
-- published：如果已经发布、已发笔记、链接已出，则为 true。
-- returned：如果已经寄回、退回、回寄，则为 true。
-- sold：如果样品已经卖出、出掉、转出，则为 true。
-- soldPrice：卖出价格，只填写数字字符串。
-- settled：如果已经结款、到账、付清、尾款已付，则为 true。
-
-理解规则：
-1. 一段聊天可能包含多条合作，请拆成多条 rows。
-2. 如果某个字段没有明确出现，填空字符串或 false，不要编造。
-3. 金额字段只保留数字，例如"¥399""399元""三百九十九"尽量转成 "399"。
-4. 如果出现"置换""寄拍""报备""现金合作""广告费"等，要合理判断 cooperationType。
-5. 如果同时有"价格"和"淘宝垫付"，不要混淆；推广报价填 price，自己先拍下垫付的本金填 taobaoAdvance。
-6. 如果聊天里只有状态更新，也要尽量根据上下文生成一条记录。
-7. 不要输出任何隐私提醒、解释或分析过程。`;
+      return [
+        "你是一个小红书 PR 合作跟进表的数据整理助手。",
+        "请阅读用户粘贴的微信聊天记录，理解完整上下文，并把最终确认的合作信息整理成 JSON。",
+        "你必须只返回 JSON，不要返回解释、Markdown 或多余文字。",
+        "",
+        "返回格式：",
+        "{",
+        "  \"rows\": [",
+        "    {",
+        "      \"brandName\": \"\",",
+        "      \"cooperationType\": \"\",",
+        "      \"price\": \"\",",
+        "      \"taobaoAdvance\": \"\",",
+        "      \"principalReturned\": false,",
+        "      \"styleRequirement\": \"\",",
+        "      \"deadline\": \"\",",
+        "      \"received\": false,",
+        "      \"shot\": false,",
+        "      \"published\": false,",
+        "      \"returned\": false,",
+        "      \"sold\": false,",
+        "      \"soldPrice\": \"\",",
+        "      \"settled\": false,",
+        "      \"note\": \"\"",
+        "    }",
+        "  ]",
+        "}",
+        "",
+        "字段要求：",
+        "- cooperationType 只能是：置换、寄拍、送拍、报备、现金、其他。",
+        "- price、taobaoAdvance、soldPrice 保留最终金额；如果是置换且无金额，price 可填「置换」。",
+        "- principalReturned、received、shot、published、returned、sold、settled 使用 true、false 或 \"N/A\"。",
+        "- 没有明确出现的信息不要编造；品牌名不明确时 brandName 留空。",
+        "- note 用来记录改价、改合作方式、寄回单号、特殊要求、无法放进其他字段的重要信息。",
+        "",
+        "判断原则：",
+        "1. 以最终确认的信息为准；同一字段前后冲突时，后文通常覆盖前文。",
+        "2. 明确确认优先于早期报价、试探性询问和临时方案。",
+        "3. 账号名、收件人姓名、手机号、快递公司、地址不要当作品牌名。",
+        "4. 准备发布不等于已发布；结款规则不等于已结款。",
+        "5. 如果一段聊天最终只形成一个合作，只返回一条；只有多个独立合作才拆多条。",
+        "6. 需要根据上下文判断 true、false 和 \"N/A\"，不确定时优先保守填写，并在 note 说明。"
+      ].join("\n");
     }
 
     function extractAIContent(data) {
@@ -1364,7 +1364,8 @@
         returned: Boolean(row.returned),
         sold: Boolean(row.sold),
         soldPrice: cleanMoney(row.soldPrice),
-        settled: Boolean(row.settled)
+        settled: Boolean(row.settled),
+        note: cleanText(row.note)
       };
     }
 
@@ -1419,7 +1420,8 @@
         returned: /已寄回|寄回了|已退回|退回/.test(clean),
         sold: /已出掉|卖掉|已卖|出掉了/.test(clean),
         soldPrice: guessSoldPrice(clean),
-        settled: /已结款|已结清|结清|已付款|已到账/.test(clean)
+        settled: /已结款|已结清|结清|已付款|已到账/.test(clean),
+        note: clean
       };
     }
 
