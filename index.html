@@ -1772,17 +1772,23 @@
         if (data.record && data.record.months) {
           state = normalizeState(data.record);
 
-          // 从云端恢复设置
+          // 从云端恢复设置（优先保留本地非空值）
           if (data.record._settings) {
-            const cloudSettings = data.record._settings;
-            settings.masterKey = cloudSettings.masterKey || settings.masterKey;
-            settings.binId = cloudSettings.binId || settings.binId;
-            settings.aiApiUrl = cloudSettings.aiApiUrl || settings.aiApiUrl;
-            settings.aiApiKey = cloudSettings.aiApiKey || settings.aiApiKey;
-            settings.aiModel = cloudSettings.aiModel || settings.aiModel;
-            settings.theme = cloudSettings.theme || settings.theme;
-            settings.fontSize = cloudSettings.fontSize || settings.fontSize;
+            const cs = data.record._settings;
+            settings.masterKey = cs.masterKey || settings.masterKey || "";
+            settings.binId = cs.binId || settings.binId || "";
+            settings.aiApiUrl = cs.aiApiUrl || settings.aiApiUrl || "";
+            settings.aiApiKey = cs.aiApiKey || settings.aiApiKey || "";
+            settings.aiModel = cs.aiModel || settings.aiModel || "";
+            settings.theme = cs.theme || settings.theme || "auto";
+            settings.fontSize = cs.fontSize || settings.fontSize || 16;
             saveSettings();
+          }
+
+          // 如果本地有配置但云端没有，立即把本地设置推上云端
+          if ((settings.masterKey || settings.aiApiKey) &&
+              (!data.record._settings || (!data.record._settings.aiApiUrl && !data.record._settings.masterKey))) {
+            syncToCloud(true);
           }
 
           saveState();
