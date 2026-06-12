@@ -497,7 +497,7 @@
     }
 
     .blank-cell {
-      background: #f8fafc;
+      background: var(--card);
       color: transparent;
       pointer-events: none;
     }
@@ -802,7 +802,7 @@
     ];
 
     const fieldApplicabilityByType = {
-      "置换": { hiddenFields: ["returned", "settled", "taobaoAdvance", "principalReturned"] },
+      "置换": { hiddenFields: ["returned", "settled", "taobaoAdvance"] },
       "寄拍": { hiddenFields: ["sold", "soldPrice"] },
       "送拍": { hiddenFields: ["returned", "sold", "soldPrice"] },
       "报备": { hiddenFields: ["taobaoAdvance", "principalReturned", "returned", "sold", "soldPrice"] },
@@ -1695,7 +1695,7 @@
         "6. 需要根据上下文判断 true、false 和 \"N/A\"，不确定时优先保守填写，并在 note 说明。",
         "",
         "字段适用性规则：",
-        "- 置换通常不涉及寄回、结款、淘宝垫付、本金返还；这些字段可填 \"N/A\"。",
+        "- 置换通常不涉及寄回、结款、淘宝垫付；这些字段可填 \"N/A\"。",
         "- 寄拍通常不涉及卖出和卖出价格；这些字段可填 \"N/A\"。",
         "- 送拍通常不涉及寄回、卖出和卖出价格；这些字段可填 \"N/A\"。",
         "- 如果聊天里明确出现特殊情况，例如送拍需要寄回或置换需要结款，则以聊天内容为准。"
