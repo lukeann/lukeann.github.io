@@ -496,6 +496,17 @@
       z-index: 50;
     }
 
+    .blank-cell {
+      background: #f8fafc;
+      color: transparent;
+      pointer-events: none;
+    }
+
+    .blank-cell span {
+      display: block;
+      min-height: 20px;
+    }
+
     .footer-note {
       color: var(--muted);
       font-size: 13px;
@@ -571,6 +582,10 @@
         content: attr(data-label);
         color: var(--muted);
         font-size: 13px;
+      }
+
+      .blank-cell {
+        display: none;
       }
 
       .row-actions {
@@ -785,6 +800,33 @@
       { key: "settled", label: "已结款", type: "check" },
       { key: "note", label: "备注", type: "text" }
     ];
+
+    const fieldApplicabilityByType = {
+      "置换": { hiddenFields: ["returned", "settled", "taobaoAdvance", "principalReturned"] },
+      "寄拍": { hiddenFields: ["sold", "soldPrice"] },
+      "送拍": { hiddenFields: ["returned", "sold", "soldPrice"] },
+      "报备": { hiddenFields: ["taobaoAdvance", "principalReturned", "returned", "sold", "soldPrice"] },
+      "现金": { hiddenFields: ["taobaoAdvance", "principalReturned", "returned", "sold", "soldPrice"] },
+      "其他": { hiddenFields: [] }
+    };
+
+    function isFieldNotApplicable(row, fieldKey) {
+      const type = row.cooperationType || "";
+      const config = fieldApplicabilityByType[type];
+      if (!config) return false;
+      return config.hiddenFields.includes(fieldKey);
+    }
+
+    function applyTypeRulesToRow(row) {
+      const config = fieldApplicabilityByType[row.cooperationType];
+      if (!config) return;
+      config.hiddenFields.forEach((fieldKey) => {
+        const currentValue = row[fieldKey];
+        if (currentValue === true) return;
+        if (currentValue && currentValue !== false && currentValue !== "N/A") return;
+        row[fieldKey] = "N/A";
+      });
+    }
 
     const defaultState = {
       activeMonth: "3月",
@@ -1030,25 +1072,6 @@
 
         const value = control.type === "checkbox" ? control.checked : control.value;
         updateRow(control.dataset.rowId, control.dataset.field, value);
-
-        // 合作方式变更时，自动调整关联字段
-        if (control.dataset.field === "cooperationType") {
-          const row = state.months[state.activeMonth].find((item) => item.id === control.dataset.rowId);
-          if (row) {
-            if (value.includes("置换")) {
-              row.returned = "N/A";
-              row.settled = "N/A";
-              row.sold = false;
-              row.soldPrice = "";
-            } else {
-              row.sold = "N/A";
-              row.soldPrice = "N/A";
-              row.returned = false;
-              row.settled = false;
-            }
-          }
-        }
-
         saveAndRender();
       });
 
@@ -1249,6 +1272,14 @@
       updateSyncStatus(navigator.onLine ? "waiting" : "offline");
     }
 
+    function renderBlankCell(column) {
+      return (
+        '<td data-label="' + escapeHtml(column.label) + '" class="blank-cell">' +
+        '<span aria-label="无意义字段"></span>' +
+        "</td>"
+      );
+    }
+
     function renderMonths() {
       els.monthTabs.innerHTML = "";
 
@@ -1299,12 +1330,12 @@
       rows.forEach((row) => {
         const tr = document.createElement("tr");
 
-        const coopType = String(row.cooperationType || "");
-        const isExchange = coopType.includes("置换");
-        const isPaid = coopType.includes("寄拍") || coopType.includes("送拍");
-
         const cells = columns.map((column) => {
           const value = row[column.key] ?? "";
+
+          if (isFieldNotApplicable(row, column.key)) {
+            return renderBlankCell(column);
+          }
 
           if (column.type === "select") {
             return `
@@ -1319,15 +1350,6 @@
           }
 
           if (column.type === "check") {
-            // 根据合作类型决定是否显示为不可用
-            const naFields = isExchange ? ["returned", "settled"] : (isPaid ? ["sold"] : []);
-            if (naFields.includes(column.key) || value === "N/A" || value === "—") {
-              return `
-                <td data-label="${escapeHtml(column.label)}">
-                  <div style="text-align:center; opacity:0.4; font-size:0.875rem;">—</div>
-                </td>
-              `;
-            }
             return `
               <td data-label="${escapeHtml(column.label)}">
                 <label class="check-cell">
@@ -1336,18 +1358,6 @@
                 </label>
               </td>
             `;
-          }
-
-          // money 列也处理 N/A
-          if (column.type === "money") {
-            const naMoneyFields = isExchange ? [] : (isPaid ? ["soldPrice"] : []);
-            if (naMoneyFields.includes(column.key)) {
-              return `
-                <td data-label="${escapeHtml(column.label)}">
-                  <div style="text-align:center; opacity:0.4; font-size:0.875rem;">—</div>
-                </td>
-              `;
-            }
           }
 
           return `
@@ -1455,6 +1465,10 @@
       if (!row) return;
 
       row[field] = value;
+
+      if (field === "cooperationType") {
+        applyTypeRulesToRow(row);
+      }
     }
 
     async function parseWechatTextWithAI(text) {
@@ -1678,7 +1692,13 @@
         "3. 账号名、收件人姓名、手机号、快递公司、地址不要当作品牌名。",
         "4. 准备发布不等于已发布；结款规则不等于已结款。",
         "5. 如果一段聊天最终只形成一个合作，只返回一条；只有多个独立合作才拆多条。",
-        "6. 需要根据上下文判断 true、false 和 \"N/A\"，不确定时优先保守填写，并在 note 说明。"
+        "6. 需要根据上下文判断 true、false 和 \"N/A\"，不确定时优先保守填写，并在 note 说明。",
+        "",
+        "字段适用性规则：",
+        "- 置换通常不涉及寄回、结款、淘宝垫付、本金返还；这些字段可填 \"N/A\"。",
+        "- 寄拍通常不涉及卖出和卖出价格；这些字段可填 \"N/A\"。",
+        "- 送拍通常不涉及寄回、卖出和卖出价格；这些字段可填 \"N/A\"。",
+        "- 如果聊天里明确出现特殊情况，例如送拍需要寄回或置换需要结款，则以聊天内容为准。"
       ].join("\n");
     }
 
@@ -1731,12 +1751,12 @@
     function normalizeAIRow(row) {
       if (!row || typeof row !== "object") return null;
 
-      const cooperationTypes = ["寄拍", "置换", "报备", "现金", "其他"];
+      const cooperationTypes = ["寄拍", "置换", "送拍", "报备", "现金", "其他"];
       const cooperationType = cooperationTypes.includes(row.cooperationType)
         ? row.cooperationType
         : "其他";
 
-      return {
+      const normalized = {
         id: createId(),
         brandName: cleanText(row.brandName),
         cooperationType,
@@ -1754,6 +1774,9 @@
         settled: Boolean(row.settled),
         note: cleanText(row.note)
       };
+
+      applyTypeRulesToRow(normalized);
+      return normalized;
     }
 
     function cleanText(value) {
@@ -2034,7 +2057,9 @@
     }
 
     function toNumber(value) {
-      const num = Number(String(value || "").replace(/[^\d.]/g, ""));
+      const text = String(value || "").trim();
+      if (!text || text === "N/A" || text === "置换") return 0;
+      const num = Number(text.replace(/[^\d.]/g, ""));
       return Number.isFinite(num) ? num : 0;
     }
 
