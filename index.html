@@ -294,8 +294,13 @@
       border: 1px solid var(--line);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      overflow: hidden;
       margin-bottom: 16px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      overflow-y: hidden;
+      border-radius: 0 0 var(--radius) var(--radius);
     }
 
     .panel-head {
@@ -321,10 +326,6 @@
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-    }
-
-    .table-wrap {
-      overflow-x: auto;
     }
 
     table {
