@@ -1442,7 +1442,7 @@
       const paidIncome = paidRows.reduce((sum, r) => sum + toNumber(r.price), 0);
       const paidSettled = paidRows.reduce((sum, r) => sum + (r.settled === true ? toNumber(r.price) : 0), 0);
       const soldIncome = exchangeRows.reduce((sum, r) => sum + (r.sold === true ? toNumber(r.soldPrice) : 0), 0);
-      const totalIncome = paidIncome + soldIncome;
+      const totalIncome = paidSettled + soldIncome;
 
       const totalDeals = rows.length;
       const pendingPublish = rows.filter((r) => r.published !== true).length;
