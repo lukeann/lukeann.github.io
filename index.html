@@ -1,973 +1,1223 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PR TRACKER - 猪猪虾</title>
-    <!-- 引入字体图标库 -->
-    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        :root {
-            /* 基础设置 */
-            --base-font-size: 16px; /* 基准字体大小，可通过JS调节 */
-            
-            /* 浅色模式 (默认) */
-            --ikea-blue: #0058a3;
-            --ikea-yellow: #ffdb00;
-            --text-primary: #111111;
-            --text-secondary: #484848;
-            --bg-page: #f5f5f5;
-            --bg-card: #ffffff;
-            --bg-table-hover: #f9f9f9;
-            --border-color: #e0e0e0;
-            --tag-bg: #f5f5f5;
-            --tag-text: #111;
-            --tag-blue-bg: #e6f0fa;
-            --tag-blue-text: #0058a3;
-            --tag-yellow-bg: #fff9c4;
-            --tag-yellow-text: #998200;
-            --input-bg: #fff;
-            --shadow-color: rgba(0,0,0,0.05);
-            --modal-overlay: rgba(0,0,0,0.5);
-            --font-family: 'Noto Sans SC', system-ui, -apple-system, sans-serif;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PR TRACKER</title>
+  <style>
+    :root {
+      --bg: #f7f9fc;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5eaf0;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-soft: #eff6ff;
+      --primary-line: #bfdbfe;
+      --green: #16a34a;
+      --orange: #f59e0b;
+      --red: #dc2626;
+      --shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+      --radius: 16px;
+      --font-size: 16px;
+    }
 
-        /* 深色模式适配 */
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --ikea-blue: #4fa4f3; /* 深色模式下蓝色调亮一点，更清晰 */
-                --ikea-yellow: #ffd200;
-                --text-primary: #e0e0e0; /* 灰白文字，不刺眼 */
-                --text-secondary: #a0a0a0;
-                --bg-page: #121212; /* 深灰背景 */
-                --bg-card: #1e1e1e; /* 卡片背景 */
-                --bg-table-hover: #2c2c2c;
-                --border-color: #333333;
-                --tag-bg: #2d2d2d;
-                --tag-text: #ddd;
-                --tag-blue-bg: rgba(0, 88, 163, 0.3);
-                --tag-blue-text: #6cb6ff;
-                --tag-yellow-bg: rgba(255, 219, 0, 0.15);
-                --tag-yellow-text: #ffdb4d;
-                --input-bg: #2d2d2d;
-                --shadow-color: rgba(0,0,0,0.3);
-                --modal-overlay: rgba(0,0,0,0.7);
-            }
-        }
+    @media (prefers-color-scheme: dark) {
+      :root[data-theme="auto"] {
+        --bg: #0f172a;
+        --card: #111827;
+        --text: #f9fafb;
+        --muted: #9ca3af;
+        --line: #263244;
+        --primary: #60a5fa;
+        --primary-hover: #3b82f6;
+        --primary-soft: #172554;
+        --primary-line: #1d4ed8;
+        --shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+      }
+    }
 
-        html { font-size: var(--base-font-size); }
+    :root[data-theme="dark"] {
+      --bg: #0f172a;
+      --card: #111827;
+      --text: #f9fafb;
+      --muted: #9ca3af;
+      --line: #263244;
+      --primary: #60a5fa;
+      --primary-hover: #3b82f6;
+      --primary-soft: #172554;
+      --primary-line: #1d4ed8;
+      --shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+    }
 
-        * { box-sizing: border-box; outline: none; }
+    * {
+      box-sizing: border-box;
+    }
 
-        body {
-            font-family: var(--font-family);
-            background-color: var(--bg-page);
-            color: var(--text-primary);
-            margin: 0;
-            padding: 2.5rem 1.25rem;
-            line-height: 1.5;
-            min-height: 100vh;
-            transition: background-color 0.3s, color 0.3s;
-        }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: var(--font-size);
+    }
 
-        /* 布局优化 */
-        .container { 
-            max-width: 1400px;
-            margin: 0 auto; 
-            background: var(--bg-card);
-            padding: 2.5rem;
-            border-radius: 1rem;
-            box-shadow: 0 0.25rem 1.25rem var(--shadow-color);
-            transition: background 0.3s;
-        }
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
 
-        /* 头部 */
-        header {
-            margin-bottom: 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 0.1875rem solid var(--text-primary);
-            padding-bottom: 1.25rem;
-            flex-wrap: wrap;
-            gap: 1.25rem;
-        }
+    button {
+      border: 0;
+      cursor: pointer;
+    }
 
-        h1 {
-            font-size: 2.625rem;
-            font-weight: 900;
-            margin: 0;
-            letter-spacing: -0.0625rem;
-            color: var(--ikea-blue);
-        }
+    .hidden {
+      display: none !important;
+    }
 
-        .header-meta {
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-            text-align: right;
-        }
+    .login {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
 
-        /* 仪表盘 */
-        .dashboard {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
-            gap: 1.25rem;
-            margin-bottom: 2.5rem;
-        }
+    .login-card {
+      width: min(420px, 100%);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
 
-        .card {
-            background-color: var(--bg-table-hover);
-            border-radius: 0.75rem;
-            padding: 1.5rem;
-            border: 1px solid var(--border-color);
-            transition: transform 0.2s, background 0.3s;
-        }
-        
-        .card:hover { transform: translateY(-0.25rem); box-shadow: 0 0.5rem 1.5rem var(--shadow-color); }
+    .login-card h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      letter-spacing: -0.04em;
+    }
 
-        .card-title {
-            font-size: 0.8125rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; margin-bottom: 0.625rem;
-        }
+    .login-card p {
+      margin: 0 0 22px;
+      color: var(--muted);
+    }
 
-        .card-value {
-            font-size: 2.25rem; font-weight: 800; color: var(--text-primary); line-height: 1;
-        }
+    .field {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
 
-        .card-value.highlight { color: var(--ikea-blue); }
-        .card-value.success { color: #28a745; } /* 深色模式下绿色也要亮一点，这里用通用绿 */
-        @media (prefers-color-scheme: dark) { .card-value.success { color: #4cd964; } }
+    .field label {
+      color: var(--muted);
+      font-size: 13px;
+    }
 
-        /* 工具栏 */
-        .toolbar {
-            display: flex;
-            gap: 0.75rem;
-            margin-bottom: 1.25rem;
-            flex-wrap: wrap;
-            align-items: center;
-        }
+    .input,
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--card);
+      color: var(--text);
+      padding: 13px 14px;
+      outline: none;
+    }
 
-        .btn {
-            background-color: var(--tag-bg);
-            color: var(--text-primary);
-            border: 1px solid transparent;
-            padding: 0.625rem 1.5rem;
-            font-size: 0.9375rem;
-            font-weight: 600;
-            cursor: pointer;
-            border-radius: 3.125rem;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
+    textarea {
+      resize: vertical;
+      min-height: 150px;
+      line-height: 1.6;
+    }
 
-        .btn:hover { background-color: var(--border-color); transform: scale(1.02); }
-        .btn-primary { background-color: var(--ikea-blue); color: white; }
-        .btn-primary:hover { background-color: var(--ikea-blue); opacity: 0.9; }
-        .btn-danger { color: #d32f2f; background: var(--bg-card); border: 1px solid #d32f2f; }
-        @media (prefers-color-scheme: dark) { .btn-danger { color: #ff5252; border-color: #ff5252; background: transparent; } }
-        
-        .btn-sync { background-color: #28a745; color: white; margin-left: auto; }
-        .btn-sync:hover { background-color: #218838; }
-        .btn-sync.loading { opacity: 0.8; cursor: wait; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 0 16px;
+      border-radius: 12px;
+      background: var(--primary);
+      color: #ffffff;
+      white-space: nowrap;
+      font-weight: 600;
+      transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+      box-shadow: 0 6px 14px rgba(37, 99, 235, 0.18);
+    }
 
-        /* 表格 */
-        .table-wrapper {
-            overflow: auto;
-            max-height: 75vh;
-            border-radius: 0.5rem;
-            padding-bottom: 0;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-        }
+    .btn:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
 
-        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 1rem; min-width: 62.5rem; }
+    .btn.secondary {
+      background: var(--primary-soft);
+      color: var(--primary);
+      box-shadow: none;
+      border: 1px solid var(--primary-line);
+    }
 
-        tr { background-color: var(--bg-card); }
+    .btn.secondary:hover {
+      background: #dbeafe;
+    }
 
-        th {
-            text-align: left; padding: 1.125rem 1rem; font-weight: 800; color: var(--text-secondary);
-            border-bottom: 0.125rem solid var(--text-primary); white-space: nowrap; position: sticky; top: 0; background: var(--bg-card); z-index: 10;
-            background-clip: padding-box;
-        }
+    .btn.danger {
+      background: #fef2f2;
+      color: var(--red);
+      box-shadow: none;
+      border: 1px solid #fecaca;
+    }
 
-        td {
-            padding: 1rem; border-bottom: 1px solid var(--border-color); vertical-align: top;
-            color: var(--text-primary); background-color: inherit;
-        }
+    .app {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px;
+    }
 
-        tr:hover { background-color: var(--bg-table-hover); }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
 
-        /* 冻结首列和第二列 */
-        th:nth-child(1), td:nth-child(1) {
-            position: sticky; left: 0; z-index: 5;
-            width: 3.5rem; min-width: 3.5rem; max-width: 3.5rem; padding-left: 0.5rem; padding-right: 0.5rem;
-        }
-        th:nth-child(2), td:nth-child(2) {
-            position: sticky; left: 3.5rem; z-index: 5;
-        }
-        /* 为第二列右侧添加阴影，表示浮动层 */
-        th:nth-child(2)::after, td:nth-child(2)::after {
-            content: ''; position: absolute; top: 0; right: -5px; bottom: 0; width: 5px;
-            background: linear-gradient(to right, rgba(0,0,0,0.05), transparent); pointer-events: none;
-        }
-        @media (prefers-color-scheme: dark) { 
-            th:nth-child(2)::after, td:nth-child(2)::after { background: linear-gradient(to right, rgba(0,0,0,0.2), transparent); }
-        }
-        th:nth-child(1), th:nth-child(2) { z-index: 15; background-color: var(--bg-card); }
-        tr:hover th:nth-child(1), tr:hover th:nth-child(2) { background-color: var(--bg-card); }
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(30px, 6vw, 58px);
+      letter-spacing: -0.08em;
+      line-height: 0.95;
+    }
 
-        /* 编辑器 & 控件 */
-        .editable { min-height: 1.5rem; cursor: text; padding: 0.25rem; border-radius: 0.25rem; transition: background 0.2s; }
-        .editable:hover { background: var(--bg-table-hover); }
-        .editable:focus { background: var(--input-bg); box-shadow: 0 0 0 2px var(--ikea-blue); }
-        
-        .tag {
-            display: inline-flex; align-items: center; padding: 0.25rem 0.625rem; border-radius: 0.375rem;
-            font-size: 0.8125rem; font-weight: 700; margin-bottom: 0.25rem;
-            background: var(--tag-bg); color: var(--tag-text);
-        }
-        .tag-blue { background: var(--tag-blue-bg); color: var(--tag-blue-text); }
-        .tag-yellow { background: var(--tag-yellow-bg); color: var(--tag-yellow-text); }
+    .brand p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
 
-        /* 复选框 */
-        .checkbox-wrapper { display: flex; justify-content: center; position: relative; align-items: center; }
-        input[type="checkbox"] {
-            width: 1.5rem; height: 1.5rem; cursor: pointer; accent-color: var(--ikea-blue); margin: 0;
-        }
-        .checkbox-revert { 
-            position: absolute; right: -0.5rem; opacity: 0; cursor: pointer; color: #ccc; 
-            font-size: 0.875rem; transition: opacity 0.2s; 
-        }
-        .checkbox-wrapper:hover .checkbox-revert { opacity: 1; }
-        .checkbox-revert:hover { color: #d32f2f; transform: scale(1.2); }
-        @media (prefers-color-scheme: dark) { .checkbox-revert:hover { color: #ff5252; } }
+    .sync-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.86);
+      border-radius: 12px;
+      padding: 9px 13px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+    }
 
-        /* 拖拽 & 删除 */
-        .row-action { opacity: 0; cursor: pointer; color: #ccc; font-size: 1.25rem; text-align: center; transition: opacity 0.2s; }
-        tr:hover .row-action { opacity: 1; }
-        .row-action:hover { color: #d32f2f; transform: scale(1.2); }
-        @media (prefers-color-scheme: dark) { .row-action:hover { color: #ff5252; } }
-        
-        .col-action { opacity: 0; cursor: pointer; color: #ccc; font-size: 1rem; transition: opacity 0.2s; }
-        th:hover .col-action { opacity: 1; }
-        .col-action:hover { color: #d32f2f; transform: scale(1.2); }
-        @media (prefers-color-scheme: dark) { .col-action:hover { color: #ff5252; } }
-        
-        .col-move-btn { cursor: pointer; font-size: 0.875rem; color: var(--border-color); padding: 0.125rem; }
-        .col-move-btn:hover { color: var(--ikea-blue); }
-        .col-move-btn.disabled { opacity: 0.2; cursor: not-allowed; }
-        
-        .drag-handle { cursor: grab; color: var(--border-color); margin-right: 0.5rem; font-size: 0.875rem; }
-        tr:hover .drag-handle { color: var(--text-secondary); }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--orange);
+    }
 
-        /* 状态提示 */
-        .toast {
-            position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.8); color: white; padding: 0.75rem 1.5rem;
-            border-radius: 2rem; font-size: 0.875rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1000;
-        }
-        .toast.show { opacity: 1; }
+    .dot.ok {
+      background: var(--green);
+    }
 
-        /* 登录遮罩 */
-        #loginOverlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--ikea-blue); z-index: 9999;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: opacity 0.5s;
-        }
-        #loginOverlay.hidden { opacity: 0; pointer-events: none; }
-        
-        .login-box {
-            background: var(--bg-card); padding: 2.5rem; border-radius: 1.25rem; text-align: center;
-            box-shadow: 0 1.25rem 3.125rem rgba(0,0,0,0.2); width: 20rem;
-        }
-        .login-box h2 { margin: 0 0 1.25rem 0; color: var(--ikea-blue); }
-        .login-box input {
-            width: 100%; padding: 0.75rem; margin-bottom: 1.25rem; border: 2px solid var(--border-color);
-            border-radius: 0.5rem; font-size: 1rem; text-align: center; background: var(--input-bg); color: var(--text-primary);
-        }
-        .login-box input:focus { border-color: var(--ikea-blue); }
-        .login-box button { width: 100%; }
+    .dot.offline {
+      background: var(--red);
+    }
 
-        /* 通用弹窗 */
-        .modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--modal-overlay); z-index: 2000; align-items: center; justify-content: center;
-        }
-        .modal.active { display: flex; }
-        .modal-content {
-            background: var(--bg-card); padding: 2rem; border-radius: 1rem; width: 25rem; max-width: 90%;
-            box-shadow: 0 0.625rem 2rem rgba(0,0,0,0.2); color: var(--text-primary);
-        }
-        .modal h3 { margin-top: 0; color: var(--ikea-blue); }
-        .input-group { margin-bottom: 1rem; }
-        .input-group label { display: block; margin-bottom: 0.3125rem; font-weight: 600; font-size: 0.875rem; color: var(--text-secondary); }
-        .input-group input {
-            width: 100%; padding: 0.625rem; border: 2px solid var(--border-color); border-radius: 0.5rem; font-size: 0.875rem;
-            background: var(--input-bg); color: var(--text-primary);
-        }
-        .input-group input:focus { border-color: var(--ikea-blue); }
-        
-        /* 字体调节滑块 */
-        input[type=range] {
-            width: 100%; -webkit-appearance: none; background: transparent;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; height: 1.25rem; width: 1.25rem; border-radius: 50%;
-            background: var(--ikea-blue); cursor: pointer; margin-top: -0.5rem; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%; height: 0.25rem; cursor: pointer; background: var(--border-color); border-radius: 0.125rem;
-        }
+    .month-row {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+    }
 
-        .modal-footer { display: flex; justify-content: flex-end; gap: 0.625rem; margin-top: 1.25rem; }
+    .month-tab {
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--muted);
+      border-radius: 12px;
+      padding: 10px 16px;
+      white-space: nowrap;
+      font-weight: 600;
+      transition: all 0.18s ease;
+    }
 
-        /* 移动端适配 */
-        @media (max-width: 768px) {
-            body { padding: 0.625rem; background: var(--bg-page); }
-            .container { padding: 1.25rem; box-shadow: none; border-radius: 0; }
-            h1 { font-size: 1.75rem; }
-            .btn { padding: 0.5rem 0.875rem; font-size: 0.8125rem; }
-            .card-value { font-size: 1.75rem; }
-            .toolbar { gap: 0.5rem; }
-            .btn-sync { width: 100%; justify-content: center; margin: 0; }
-        }
-    </style>
+    .month-tab:hover {
+      color: var(--primary);
+      border-color: var(--primary-line);
+      background: var(--primary-soft);
+    }
+
+    .month-tab.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .stat strong {
+      font-size: clamp(24px, 4vw, 36px);
+      letter-spacing: -0.05em;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 980px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 12px;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      color: #475569;
+      font-size: 12px;
+      font-weight: 700;
+      background: #f1f5f9;
+    }
+
+    td[contenteditable="true"] {
+      outline: none;
+      border-radius: 10px;
+    }
+
+    td[contenteditable="true"]:focus {
+      background: var(--primary-soft);
+      box-shadow: inset 0 0 0 1px var(--primary-line);
+    }
+
+    .status-select,
+    .type-select {
+      min-width: 96px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: var(--card);
+      color: var(--text);
+    }
+
+    .row-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .mini {
+      min-height: 34px;
+      padding: 0 10px;
+      border-radius: 10px;
+      background: var(--primary-soft);
+      color: var(--text);
+    }
+
+    .drawer {
+      position: fixed;
+      inset: auto 18px 18px auto;
+      width: min(520px, calc(100vw - 36px));
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.16);
+      padding: 18px;
+      z-index: 20;
+    }
+
+    .drawer h3 {
+      margin: 0 0 12px;
+      font-size: 20px;
+    }
+
+    .drawer p {
+      color: var(--muted);
+      line-height: 1.6;
+      margin: 0 0 14px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      background: var(--primary);
+      color: #ffffff;
+      padding: 12px 16px;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      z-index: 50;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        padding: 16px;
+      }
+
+      .topbar {
+        display: grid;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .panel-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .actions {
+        width: 100%;
+      }
+
+      .actions .btn {
+        flex: 1;
+      }
+
+      table,
+      thead,
+      tbody,
+      tr,
+      th,
+      td {
+        display: block;
+      }
+
+      table {
+        min-width: 0;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tbody {
+        padding: 12px;
+        display: grid;
+        gap: 12px;
+      }
+
+      tr {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 12px;
+        background: var(--card);
+      }
+
+      td {
+        border: 0;
+        display: grid;
+        grid-template-columns: 82px 1fr;
+        gap: 10px;
+        padding: 8px 0;
+      }
+
+      td::before {
+        content: attr(data-label);
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .row-actions {
+        justify-content: flex-end;
+      }
+
+      .drawer {
+        inset: auto 10px 10px 10px;
+        width: auto;
+      }
+    }
+  </style>
 </head>
+
 <body>
-
-<!-- 登录遮罩 -->
-<div id="loginOverlay">
-    <div class="login-box">
-        <h2>🔒 访问验证</h2>
-        <p style="color:var(--text-secondary); margin-bottom:1.25rem; font-size:0.875rem;">请输入密码访问 PR TRACKER</p>
-        <input type="password" id="loginPwd" placeholder="输入密码" onkeypress="checkEnter(event)">
-        <button class="btn btn-primary" onclick="checkLogin()">进入系统</button>
+  <section id="login" class="login">
+    <div class="login-card">
+      <h1>访问验证</h1>
+      <p>请输入密码访问 PR TRACKER</p>
+      <div class="field">
+        <label for="passwordInput">密码</label>
+        <input id="passwordInput" class="input" type="password" placeholder="输入密码" />
+      </div>
+      <button id="loginBtn" class="btn" style="width: 100%;">进入系统</button>
     </div>
-</div>
+  </section>
 
-<div class="container">
-    <header>
-        <div>
-            <h1>PR TRACKER</h1>
-            <div style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 500;">
-                小红书合作跟进 · 猪猪虾
-            </div>
-        </div>
-        <div class="header-meta">
-            <div><i class="fas fa-map-marker-alt"></i> 佛山市禅城区同华西路9号</div>
-            <div style="margin-top:0.25rem;"><i class="fas fa-phone"></i> 18485667303</div>
-        </div>
+  <main id="app" class="app hidden">
+    <header class="topbar">
+      <div class="brand">
+        <h1>PR TRACKER</h1>
+        <p>小红书合作跟进 · 猪猪虾<br />佛山市禅城区同华西路9号 · 18485667303</p>
+      </div>
+      <div id="syncStatus" class="sync-pill">
+        <i class="dot"></i>
+        <span>等待同步</span>
+      </div>
     </header>
 
-    <!-- 仪表盘 -->
-    <div class="dashboard">
-        <div class="card">
-            <div class="card-title">预计总收入 (Pending)</div>
-            <div class="card-value highlight" id="totalProjected">¥0</div>
-        </div>
-        <div class="card">
-            <div class="card-title">已到账 (Confirmed)</div>
-            <div class="card-value success" id="totalConfirmed">¥0</div>
-        </div>
-        <div class="card">
-            <div class="card-title">待入账 (Waiting)</div>
-            <div class="card-value" id="totalWaiting" style="color: var(--text-secondary); opacity: 0.6;">¥0</div>
-        </div>
-        <div class="card">
-            <div class="card-title">寄拍 / 置换</div>
-            <div class="card-value" style="font-size: 1.75rem;">
-                <span style="color: var(--ikea-blue);" id="countPaid">0</span> / 
-                <span style="color: var(--tag-yellow-text);" id="countExchange">0</span>
-            </div>
-        </div>
-    </div>
+    <nav id="monthTabs" class="month-row"></nav>
 
-    <div class="toolbar">
-        <button class="btn btn-primary" onclick="addRow()"><i class="fas fa-plus"></i> 加行</button>
-        <button class="btn" onclick="addColumn()"><i class="fas fa-columns"></i> 加列</button>
-        <button class="btn btn-danger" onclick="resetData()"><i class="fas fa-undo"></i> 重置</button>
-        <button class="btn" onclick="openAppearanceModal()"><i class="fas fa-adjust"></i> 外观</button>
-        
-        <button class="btn btn-sync" onclick="openSyncModal()" id="syncBtn">
-            <i class="fas fa-cloud"></i> <span id="syncBtnText">云端同步</span>
-        </button>
-    </div>
+    <section class="stats">
+      <div class="stat">
+        <span>预计总收入</span>
+        <strong id="totalPending">¥0</strong>
+      </div>
+      <div class="stat">
+        <span>已到账</span>
+        <strong id="totalConfirmed">¥0</strong>
+      </div>
+      <div class="stat">
+        <span>待入账</span>
+        <strong id="totalWaiting">¥0</strong>
+      </div>
+      <div class="stat">
+        <span>寄拍 / 置换</span>
+        <strong id="giftCount">0 / 0</strong>
+      </div>
+    </section>
 
-    <div class="table-wrapper">
-        <table id="mainTable">
-            <thead></thead>
-            <tbody></tbody>
+    <section class="panel">
+      <div class="panel-head">
+        <h2 id="currentMonthTitle">3月数据</h2>
+        <div class="actions">
+          <button id="addRowBtn" class="btn">加行</button>
+          <button id="aiBtn" class="btn secondary">AI解析</button>
+          <button id="addMonthBtn" class="btn secondary">加月份</button>
+          <button id="settingsBtn" class="btn secondary">设置</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>博主 / 客户</th>
+              <th>项目 / 内容</th>
+              <th>类型</th>
+              <th>金额</th>
+              <th>状态</th>
+              <th>微信 / 电话</th>
+              <th>备注</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
         </table>
+      </div>
+    </section>
+
+    <p class="footer-note">
+      操作后会自动保存并尝试云端同步；离线时会先保存在本机，恢复网络后立即补同步。
+    </p>
+  </main>
+
+  <section id="aiDrawer" class="drawer hidden">
+    <h3>AI解析微信对话</h3>
+    <p>把微信里复制的杂乱聊天内容粘贴进来。系统会识别金额、日期、合作类型、状态、联系方式和备注，并添加到当前月份。</p>
+
+    <div class="field">
+      <label for="chatInput">微信聊天内容</label>
+      <textarea id="chatInput" placeholder="例：&#10;小王 3月15号 小红书图文 置换 已寄出&#10;报价 800，尾款未结&#10;微信 wx123456"></textarea>
     </div>
-    
-    <div style="text-align: center; color: var(--text-secondary); opacity: 0.5; margin-top: 2rem; font-size: 0.8125rem;">
-        提示：拖拽行首图标可排序 · 点击文字可编辑 · 记得点击云端同步保存
+
+    <div class="actions">
+      <button id="parseBtn" class="btn">解析并添加</button>
+      <button id="closeAiBtn" class="btn secondary">关闭</button>
     </div>
-</div>
+  </section>
 
-<!-- 云同步配置弹窗 -->
-<div id="configModal" class="modal">
-    <div class="modal-content">
-        <h3><i class="fas fa-cog"></i> 云端同步设置</h3>
-        <p style="font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
-            使用 <a href="https://jsonbin.io" target="_blank" style="color: var(--ikea-blue);">JSONBin.io</a> 免费实现手机电脑同步。<br>
-            注册后创建一个 Bin，填入下面的信息。
-        </p>
-        
-        <div class="input-group">
-            <label>Master Key (X-Master-Key)</label>
-            <input type="password" id="apiKey" placeholder="例如: $2b$10$..." onchange="saveConfig()">
-        </div>
-        <div class="input-group">
-            <label>Bin ID</label>
-            <input type="text" id="binId" placeholder="例如: 65d4f..." onchange="saveConfig()">
-        </div>
+  <section id="settingsDrawer" class="drawer hidden">
+    <h3>设置</h3>
 
-        <div class="modal-footer">
-            <button class="btn" onclick="closeModal('configModal')">关闭</button>
-            <button class="btn btn-primary" onclick="manualSync()">立即同步</button>
-        </div>
+    <div class="field">
+      <label for="masterKey">JSONBin Master Key</label>
+      <input id="masterKey" class="input" type="password" placeholder="X-Master-Key" />
     </div>
-</div>
 
-<!-- 外观设置弹窗 -->
-<div id="appearanceModal" class="modal">
-    <div class="modal-content" style="width: 20rem;">
-        <h3><i class="fas fa-adjust"></i> 外观设置</h3>
-        
-        <div class="input-group" style="margin-top: 1.5rem;">
-            <label style="display:flex; justify-content:space-between;">
-                字体大小 <span id="fontSizeDisplay">16px</span>
-            </label>
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span style="font-size: 12px;">A</span>
-                <input type="range" id="fontSlider" min="12" max="24" step="1" value="16" oninput="updateFontSize(this.value)">
-                <span style="font-size: 20px;">A</span>
-            </div>
-        </div>
-
-        <div class="input-group" style="margin-top: 1.5rem;">
-            <label>颜色模式</label>
-            <div style="font-size: 0.875rem; color: var(--text-secondary); background: var(--bg-table-hover); padding: 10px; border-radius: 8px;">
-                <i class="fas fa-magic"></i> 自动跟随系统（支持深色模式）
-            </div>
-        </div>
-
-        <div class="modal-footer">
-            <button class="btn btn-primary" onclick="closeModal('appearanceModal')">完成</button>
-        </div>
+    <div class="field">
+      <label for="binId">JSONBin Bin ID</label>
+      <input id="binId" class="input" placeholder="Bin ID" />
     </div>
-</div>
 
-<div id="toast" class="toast">已保存</div>
+    <div class="field">
+      <label for="themeSelect">颜色模式</label>
+      <select id="themeSelect">
+        <option value="auto">自动跟随系统</option>
+        <option value="light">浅色</option>
+        <option value="dark">深色</option>
+      </select>
+    </div>
 
-<script>
-    // --- 登录逻辑 ---
-    const LOGIN_KEY = 'pr_tracker_login';
-    
-    function checkLogin() {
-        const pwd = document.getElementById('loginPwd').value;
-        if (pwd === '200366') {
-            document.getElementById('loginOverlay').classList.add('hidden');
-            localStorage.setItem(LOGIN_KEY, 'true'); // 记住登录状态
-        } else {
-            alert('密码错误，请重试');
-            document.getElementById('loginPwd').value = '';
-        }
-    }
+    <div class="field">
+      <label for="fontSize">字体大小</label>
+      <input id="fontSize" class="input" type="range" min="14" max="20" step="1" />
+    </div>
 
-    function checkEnter(e) {
-        if(e.key === 'Enter') checkLogin();
-    }
+    <div class="actions">
+      <button id="syncNowBtn" class="btn">立即同步</button>
+      <button id="closeSettingsBtn" class="btn secondary">完成</button>
+    </div>
 
-    // 页面加载时检查
-    if (localStorage.getItem(LOGIN_KEY) === 'true') {
-        document.getElementById('loginOverlay').classList.add('hidden');
-    }
+    <p class="footer-note">
+      使用 JSONBin.io 时，请先创建一个 Bin，再填入 Master Key 和 Bin ID。保存后会自动上传当前数据。
+    </p>
+  </section>
 
-    // --- 外观设置逻辑 ---
-    function initAppearance() {
-        const savedSize = localStorage.getItem('fontSize') || '16';
-        updateFontSize(savedSize);
-        document.getElementById('fontSlider').value = savedSize;
-    }
+  <div id="toast" class="toast hidden"></div>
 
-    function updateFontSize(val) {
-        document.documentElement.style.setProperty('--base-font-size', val + 'px');
-        document.getElementById('fontSizeDisplay').innerText = val + 'px';
-        localStorage.setItem('fontSize', val);
-    }
+  <script>
+    const PASSWORD = "1234";
+    const STORAGE_KEY = "pr_tracker_v2";
+    const SETTINGS_KEY = "pr_tracker_settings_v2";
 
-    window.openAppearanceModal = () => document.getElementById('appearanceModal').classList.add('active');
+    const defaultState = {
+      activeMonth: "3月",
+      months: {
+        "3月": [],
+        "6月": []
+      }
+    };
 
-    // 默认数据
-    const defaultHeaders = ["品牌名称", "合作方式", "价格", "淘宝垫付", "本金已返", "款式/要求", "截止日期", "已收到", "已拍摄", "已发布", "已寄回", "已结款"];
-    const defaultData = [
-        {id: 1, cells: ["INHERWORDS", "置换", "置换", "", false, "长袖T恤", "3月内", false, false, false, false, false]},
-        {id: 2, cells: ["INHERWORDS", "置换", "置换", "", false, "黑色衬衫长袖", "3月内", false, false, false, false, false]},
-        {id: 3, cells: ["药九玫柒 (1997邮政局)", "置换", "置换", "", false, "印花短袖", "待定", true, true, false, "N/A", "N/A"]},
-        {id: 4, cells: ["WhyBerry", "置换", "置换", "", false, "红色外套", "3月内", false, false, false, "N/A", "N/A"]},
-        {id: 5, cells: ["Bill conch", "置换", "置换", "", false, "无袖蓝色裙子", "待定", false, false, false, "N/A", "N/A"]},
-        {id: 6, cells: ["暴走蓝鲸", "寄拍", "120", "", false, "红格子衬衫", "3.25前", false, false, false, false, false]},
-        {id: 7, cells: ["MR MUKOK", "寄拍", "120", "", false, "亚麻衬衫 (出片5天寄回)", "3月内", true, false, false, false, false]},
-        {id: 8, cells: ["mysugarbabe (MSB)", "置换", "置换", "", false, "蕾丝风半裙", "待定", false, false, false, "N/A", "N/A"]},
-        {id: 9, cells: ["RPB Brand", "寄拍", "120", "", false, "裤子+上衣", "3月底前", false, false, false, false, false]},
-        {id: 10, cells: ["living town", "寄拍", "130", "", false, "无袖格子裙", "3月内", false, false, false, false, false]},
-        {id: 11, cells: ["fisherman store", "置换", "置换", "", false, "马甲衬衫", "3月内", false, false, false, false, false]},
-        {id: 12, cells: ["round ship", "寄拍", "120", "", false, "刺绣吊带裙", "3月内", true, true, false, false, false]},
-        {id: 13, cells: ["gtrg", "寄拍", "150", "", false, "黑色polo＋短裤", "3月内", false, false, false, false, false]},
-        {id: 14, cells: ["LRRE", "置换", "置换", "", false, "黑色半裙", "3月内", false, false, false, false, false]}
-    ];
+    let state = loadState();
+    let settings = loadSettings();
+    let syncTimer = null;
+    let isSyncing = false;
 
-    // 状态
-    let headers = JSON.parse(localStorage.getItem('headers')) || defaultHeaders;
-    let data = JSON.parse(localStorage.getItem('data')) || defaultData;
-    let cloudConfig = JSON.parse(localStorage.getItem('cloudConfig')) || { apiKey: '', binId: '' };
+    const els = {
+      login: document.getElementById("login"),
+      app: document.getElementById("app"),
+      passwordInput: document.getElementById("passwordInput"),
+      loginBtn: document.getElementById("loginBtn"),
+      syncStatus: document.getElementById("syncStatus"),
+      monthTabs: document.getElementById("monthTabs"),
+      currentMonthTitle: document.getElementById("currentMonthTitle"),
+      tableBody: document.getElementById("tableBody"),
+      totalPending: document.getElementById("totalPending"),
+      totalConfirmed: document.getElementById("totalConfirmed"),
+      totalWaiting: document.getElementById("totalWaiting"),
+      giftCount: document.getElementById("giftCount"),
+      addRowBtn: document.getElementById("addRowBtn"),
+      aiBtn: document.getElementById("aiBtn"),
+      addMonthBtn: document.getElementById("addMonthBtn"),
+      settingsBtn: document.getElementById("settingsBtn"),
+      aiDrawer: document.getElementById("aiDrawer"),
+      chatInput: document.getElementById("chatInput"),
+      parseBtn: document.getElementById("parseBtn"),
+      closeAiBtn: document.getElementById("closeAiBtn"),
+      settingsDrawer: document.getElementById("settingsDrawer"),
+      masterKey: document.getElementById("masterKey"),
+      binId: document.getElementById("binId"),
+      themeSelect: document.getElementById("themeSelect"),
+      fontSize: document.getElementById("fontSize"),
+      syncNowBtn: document.getElementById("syncNowBtn"),
+      closeSettingsBtn: document.getElementById("closeSettingsBtn"),
+      toast: document.getElementById("toast")
+    };
 
-    function ensureRequiredColumns() {
-        let changed = false;
-        // 数据迁移：自动为老用户增加“淘宝垫付”和“本金已返”两列
-        if (!headers.includes("淘宝垫付")) {
-            let idx = headers.indexOf("价格");
-            if(idx === -1) idx = headers.length - 1;
-            headers.splice(idx + 1, 0, "淘宝垫付");
-            data.forEach(r => r.cells.splice(idx + 1, 0, ""));
-            changed = true;
-        }
-        if (!headers.includes("本金已返")) {
-            let idx = headers.indexOf("淘宝垫付");
-            if(idx === -1) idx = headers.length - 1;
-            headers.splice(idx + 1, 0, "本金已返");
-            // 根据“淘宝垫付”是否为“是”来决定“本金已返”的初始值
-            let tbIdx = headers.indexOf("淘宝垫付");
-            data.forEach(r => {
-                let tbVal = r.cells[tbIdx];
-                r.cells.splice(idx + 1, 0, tbVal === "是" ? false : "—");
-            });
-            changed = true;
-        }
-        
-        // 确保现有的"淘宝垫付"为文本，避免被误转为布尔值
-        let tbIdx = headers.indexOf("淘宝垫付");
-        if (tbIdx > -1) {
-            data.forEach(r => {
-                if (r.cells[tbIdx] === true) { r.cells[tbIdx] = "是"; changed = true; }
-                if (r.cells[tbIdx] === false) { r.cells[tbIdx] = "—"; changed = true; }
-            });
-        }
-        
-        if (changed) {
-            localStorage.setItem('headers', JSON.stringify(headers));
-            localStorage.setItem('data', JSON.stringify(data));
-        }
-    }
-
-    // 初始执行一次迁移
-    ensureRequiredColumns();
-
-    const table = document.getElementById('mainTable');
-    const toast = document.getElementById('toast');
-
-    // 初始化
-    function init() {
-        initAppearance();
-        renderTable();
-        calculateTotals();
-        
-        document.getElementById('apiKey').value = cloudConfig.apiKey;
-        document.getElementById('binId').value = cloudConfig.binId;
-
-        if (cloudConfig.apiKey && cloudConfig.binId) {
-            pullFromCloud();
-        }
-    }
-
-    // --- 核心逻辑 ---
-
-    function renderTable() {
-        const thead = table.querySelector('thead');
-        const tbody = table.querySelector('tbody');
-        thead.innerHTML = '';
-        tbody.innerHTML = '';
-
-        // 表头
-        const trH = document.createElement('tr');
-        trH.innerHTML = `<th style="width:3.125rem">#</th>`;
-        headers.forEach((h, i) => {
-            trH.innerHTML += `
-                <th class="draggable">
-                    <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
-                        <div style="display:flex; flex-direction:column; gap:0.125rem;">
-                            <i class="fas fa-caret-left col-move-btn ${i === 0 ? 'disabled' : ''}" onclick="${i === 0 ? '' : `moveColumn(${i}, -1)`}" title="左移"></i>
-                            <i class="fas fa-caret-right col-move-btn ${i === headers.length - 1 ? 'disabled' : ''}" onclick="${i === headers.length - 1 ? '' : `moveColumn(${i}, 1)`}" title="右移"></i>
-                        </div>
-                        <div style="flex:1;" contenteditable="true" onblur="updateHeader(${i}, this.innerText)">${h}</div>
-                        <i class="fas fa-times col-action" onclick="deleteColumn(${i})" title="删除列"></i>
-                    </div>
-                </th>`;
-        });
-        trH.innerHTML += `<th style="width:3.125rem"></th>`;
-        thead.appendChild(trH);
-
-        // 表体
-        data.forEach((row, rIdx) => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td><span class="drag-handle" draggable="true" ondragstart="onDragStart(event, ${rIdx})" ondragover="onDragOver(event)" ondrop="onDrop(event, ${rIdx})"><i class="fas fa-bars"></i></span> ${rIdx + 1}</td>`;
-            
-            row.cells.forEach((cell, cIdx) => {
-                let content = '';
-                // 渲染逻辑
-                if (typeof cell === 'boolean') {
-                    content = `<div class="checkbox-wrapper">
-                        <input type="checkbox" ${cell ? 'checked' : ''} onchange="updateData(${rIdx}, ${cIdx}, this.checked)">
-                        <i class="fas fa-undo checkbox-revert" title="恢复为文字" onclick="revertToText(${rIdx}, ${cIdx})"></i>
-                    </div>`;
-                } else if (cell === "N/A" || cell === "—") {
-                    content = `<div style="text-align:center; opacity:0.5;" contenteditable="true" onblur="updateData(${rIdx}, ${cIdx}, this.innerText)">${cell}</div>`;
-                } else {
-                    let display = cell;
-                    // 样式增强
-                    if (headers[cIdx].includes("方式")) {
-                        if (cell.includes("寄拍")) display = `<span class="tag tag-blue">寄拍</span>`;
-                        if (cell.includes("置换")) display = `<span class="tag tag-yellow">置换</span>`;
-                    }
-                    content = `<div class="editable" contenteditable="true" onblur="updateData(${rIdx}, ${cIdx}, this.innerText)">${display}</div>`;
-                }
-                tr.innerHTML += `<td>${content}</td>`;
-            });
-
-            tr.innerHTML += `<td><div class="row-action" onclick="deleteRow(${rIdx})">×</div></td>`;
-            tbody.appendChild(tr);
-        });
-    }
-
-    function calculateTotals() {
-        let totalPending = 0;
-        let totalConfirmed = 0;
-        let countPaid = 0;
-        let countExchange = 0;
-
-        const priceIdx = headers.findIndex(h => h.includes("价格") || h.includes("佣金"));
-        const paidIdx = headers.findIndex(h => h.includes("结款"));
-        const typeIdx = headers.findIndex(h => h.includes("方式"));
-
-        data.forEach(row => {
-            // 金额
-            if (priceIdx > -1) {
-                let val = parseFloat(String(row.cells[priceIdx]).replace(/[^\d.]/g, '')) || 0;
-                totalPending += val;
-                if (paidIdx > -1 && row.cells[paidIdx] === true) totalConfirmed += val;
-            }
-            // 计数
-            if (typeIdx > -1) {
-                if (String(row.cells[typeIdx]).includes("寄拍")) countPaid++;
-                if (String(row.cells[typeIdx]).includes("置换")) countExchange++;
-            }
-        });
-
-        document.getElementById('totalProjected').innerText = '¥' + totalPending;
-        document.getElementById('totalConfirmed').innerText = '¥' + totalConfirmed;
-        document.getElementById('totalWaiting').innerText = '¥' + (totalPending - totalConfirmed);
-        document.getElementById('countPaid').innerText = countPaid;
-        document.getElementById('countExchange').innerText = countExchange;
-    }
-
-    // --- 数据操作 ---
-
-    // 防抖计时器，用于自动保存
-    let autoSaveTimer = null;
-
-    function triggerAutoSave() {
-        if (!cloudConfig.apiKey || !cloudConfig.binId) return;
-        
-        const syncBtn = document.getElementById('syncBtnText');
-        const originalText = syncBtn.innerText;
-        syncBtn.innerText = '保存中...';
-        
-        clearTimeout(autoSaveTimer);
-        autoSaveTimer = setTimeout(async () => {
-            await pushToCloud(true); // true 表示是自动保存，不弹窗打扰
-            syncBtn.innerText = originalText;
-        }, 1000); // 1秒后执行
-    }
-
-    window.updateData = (r, c, val) => {
-        const isTaobaoAdvance = headers[c] === "淘宝垫付";
-        
-        // 当输入文字“是”或“否”时，自动转换为复选框(布尔值)，但“淘宝垫付”列除外
-        if (typeof val === 'string' && !isTaobaoAdvance) {
-            const text = val.trim();
-            if (text === '是') {
-                val = true;
-            } else if (text === '否') {
-                val = false;
-            }
-        }
-        
-        // 如果是“淘宝垫付”列，输入不是"是"，则默认给"——"
-        if (isTaobaoAdvance && typeof val === 'string') {
-            const text = val.trim();
-            if (text === '是' || text === '否') {
-                val = text === '是' ? '是' : '—';
-            }
-        }
-        
-        data[r].cells[c] = val;
-        
-        // 当“淘宝垫付”改变时，重置其对应的“本金已返”
-        if (isTaobaoAdvance) {
-            let returnIdx = headers.indexOf("本金已返");
-            if (returnIdx > -1) {
-                if (val !== '是') {
-                    data[r].cells[returnIdx] = "—"; // 不是垫付，本金已返直接置为 "—"
-                } else {
-                    if (data[r].cells[returnIdx] === "—" || data[r].cells[returnIdx] === "") {
-                        data[r].cells[returnIdx] = false; // 变回复选框
-                    }
-                }
-            }
-        }
-        
-        saveLocal();
-        renderTable();
-        calculateTotals();
-        triggerAutoSave(); // 触发自动保存
-    }
-
-    window.revertToText = (r, c) => {
-        if(confirm("确定要取消复选框，恢复为普通文字吗？")) {
-            data[r].cells[c] = "";
-            saveLocal();
-            renderTable();
-            calculateTotals();
-            triggerAutoSave();
-        }
-    }
-
-    // 行拖拽逻辑
-    let draggedRowIdx = null;
-    window.onDragStart = (e, idx) => {
-        draggedRowIdx = idx;
-        e.dataTransfer.effectAllowed = 'move';
-    }
-    window.onDragOver = (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-    }
-    window.onDrop = (e, idx) => {
-        e.preventDefault();
-        if (draggedRowIdx === null || draggedRowIdx === idx) return;
-        const draggedRow = data.splice(draggedRowIdx, 1)[0];
-        data.splice(idx, 0, draggedRow);
-        saveLocal();
-        renderTable();
-        triggerAutoSave();
-        draggedRowIdx = null;
-    }
-
-    window.updateHeader = (i, val) => {
-        if (val.trim() === '') {
-            val = '未命名列';
-        }
-        headers[i] = val;
-        
-        // 智能推断列类型转换
-        const isCheckboxName = val.includes("已") || val.includes("完成");
-        const hasTextData = data.some(r => typeof r.cells[i] === 'string' && r.cells[i] !== "" && r.cells[i] !== "N/A");
-        const hasBooleanData = data.some(r => typeof r.cells[i] === 'boolean');
-        
-        if (isCheckboxName && !hasBooleanData) {
-            if (confirm(`是否将【${val}】列转换为复选框（打勾）？（原有的文字内容会被清空）`)) {
-                data.forEach(r => {
-                    if (r.cells[i] !== "N/A") r.cells[i] = false;
-                });
-            }
-        } else if (!isCheckboxName && hasBooleanData) {
-            if (confirm(`是否将【${val}】列转换为普通文本？（复选框将被移除）`)) {
-                data.forEach(r => {
-                    if (typeof r.cells[i] === 'boolean') {
-                        r.cells[i] = r.cells[i] ? "完成" : "";
-                    }
-                });
-            }
-        }
-        
-        saveLocal();
-        renderTable();
-        triggerAutoSave();
-    }
-
-    window.addRow = () => {
-        const newRow = {
-            id: Date.now(),
-            cells: headers.map(h => {
-                if (h === "淘宝垫付") return "—";
-                if (h === "本金已返") return "—";
-                return (h.includes("已") || h.includes("完成")) ? false : "";
-            })
-        };
-        data.push(newRow);
-        saveLocal();
-        renderTable();
-        triggerAutoSave();
-    }
-
-    window.addColumn = () => {
-        const name = prompt("列名:", "新列");
-        if(name) {
-            headers.push(name);
-            const isCheckbox = name.includes("已") || name.includes("完成");
-            data.forEach(r => r.cells.push(isCheckbox ? false : ""));
-            saveLocal();
-            renderTable();
-            triggerAutoSave();
-        }
-    }
-
-    window.deleteColumn = (i) => {
-        if(confirm(`确定删除列【${headers[i]}】吗?`)) {
-            headers.splice(i, 1);
-            data.forEach(r => r.cells.splice(i, 1));
-            saveLocal();
-            renderTable();
-            calculateTotals();
-            triggerAutoSave();
-        }
-    }
-
-    window.moveColumn = (i, direction) => {
-        if (i + direction < 0 || i + direction >= headers.length) return;
-        
-        // 交换 headers
-        const tempHeader = headers[i];
-        headers[i] = headers[i + direction];
-        headers[i + direction] = tempHeader;
-        
-        // 交换 data
-        data.forEach(r => {
-            const tempCell = r.cells[i];
-            r.cells[i] = r.cells[i + direction];
-            r.cells[i + direction] = tempCell;
-        });
-        
-        saveLocal();
-        renderTable();
-        triggerAutoSave();
-    }
-
-    window.deleteRow = (i) => {
-        if(confirm("确定删除?")) {
-            data.splice(i, 1);
-            saveLocal();
-            renderTable();
-            calculateTotals();
-            triggerAutoSave();
-        }
-    }
-
-    window.resetData = () => {
-        if(confirm("恢复默认数据?")) {
-            localStorage.removeItem('headers');
-            localStorage.removeItem('data');
-            location.reload();
-        }
-    }
-
-    function saveLocal() {
-        localStorage.setItem('headers', JSON.stringify(headers));
-        localStorage.setItem('data', JSON.stringify(data));
-        showToast("已保存到本地");
-    }
-
-    function showToast(msg) {
-        toast.innerText = msg;
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 2000);
-    }
-
-    // --- 云同步逻辑 ---
-
-    window.openSyncModal = () => document.getElementById('configModal').classList.add('active');
-    window.closeModal = (id) => document.getElementById(id).classList.remove('active');
-
-    window.saveConfig = () => {
-        cloudConfig.apiKey = document.getElementById('apiKey').value.trim();
-        cloudConfig.binId = document.getElementById('binId').value.trim();
-        localStorage.setItem('cloudConfig', JSON.stringify(cloudConfig));
-    }
-
-    window.manualSync = async () => {
-        if (!cloudConfig.apiKey || !cloudConfig.binId) {
-            alert("请先填入 Key 和 Bin ID");
-            return;
-        }
-        
-        const btn = document.querySelector('.btn-sync');
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 同步中...';
-        
-        await pushToCloud(false);
-        
-        btn.innerHTML = '<i class="fas fa-cloud"></i> 云端同步';
-        closeModal('configModal');
-    }
-
-    async function pushToCloud(isSilent = false) {
-        try {
-            const payload = { headers, data, updatedAt: new Date().toISOString() };
-            const res = await fetch(`https://api.jsonbin.io/v3/b/${cloudConfig.binId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Master-Key': cloudConfig.apiKey
-                },
-                body: JSON.stringify(payload)
-            });
-            
-            if (res.ok) {
-                if(!isSilent) showToast("✅ 云端同步成功！");
-                else {
-                    const syncBtn = document.getElementById('syncBtnText');
-                    if(syncBtn) syncBtn.innerText = '云端同步';
-                }
-            } else {
-                if(!isSilent) alert("同步失败，请检查 Key 或 ID");
-            }
-        } catch (e) {
-            console.error(e);
-            if(!isSilent) alert("网络错误");
-        }
-    }
-
-    async function pullFromCloud() {
-        try {
-            const res = await fetch(`https://api.jsonbin.io/v3/b/${cloudConfig.binId}/latest`, {
-                headers: { 'X-Master-Key': cloudConfig.apiKey }
-            });
-            
-            if (res.ok) {
-                const json = await res.json();
-                const remote = json.record;
-                if (remote.data && remote.data.length > 0) {
-                    headers = remote.headers;
-                    data = remote.data;
-                    ensureRequiredColumns(); // 确保从云端拉取的数据也有这两列
-                    saveLocal(); 
-                    renderTable();
-                    calculateTotals();
-                    console.log("已从云端拉取最新数据");
-                }
-            }
-        } catch (e) {
-            console.error("拉取失败", e);
-        }
-    }
-
-    // 启动
     init();
 
-</script>
+    function init() {
+      applySettings();
+      bindEvents();
 
+      if (sessionStorage.getItem("pr_tracker_authed") === "yes") {
+        showApp();
+      }
+    }
+
+    function bindEvents() {
+      els.loginBtn.addEventListener("click", checkPassword);
+      els.passwordInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") checkPassword();
+      });
+
+      els.addRowBtn.addEventListener("click", () => {
+        addRow();
+        saveAndRender();
+      });
+
+      els.aiBtn.addEventListener("click", () => els.aiDrawer.classList.remove("hidden"));
+      els.closeAiBtn.addEventListener("click", () => els.aiDrawer.classList.add("hidden"));
+
+      els.settingsBtn.addEventListener("click", openSettings);
+      els.closeSettingsBtn.addEventListener("click", closeSettings);
+
+      els.addMonthBtn.addEventListener("click", addMonth);
+
+      els.parseBtn.addEventListener("click", () => {
+        const rows = parseWechatText(els.chatInput.value);
+        if (!rows.length) {
+          toast("没有识别到可添加的数据");
+          return;
+        }
+
+        state.months[state.activeMonth].push(...rows);
+        els.chatInput.value = "";
+        els.aiDrawer.classList.add("hidden");
+        saveAndRender();
+        toast(`已添加 ${rows.length} 条`);
+      });
+
+      els.syncNowBtn.addEventListener("click", () => {
+        saveSettingsFromForm();
+        syncToCloud(true);
+      });
+
+      els.themeSelect.addEventListener("change", () => {
+        settings.theme = els.themeSelect.value;
+        saveSettings();
+        applySettings();
+      });
+
+      els.fontSize.addEventListener("input", () => {
+        settings.fontSize = els.fontSize.value;
+        saveSettings();
+        applySettings();
+      });
+
+      window.addEventListener("online", () => {
+        updateSyncStatus("online");
+        syncToCloud(true);
+      });
+
+      window.addEventListener("offline", () => updateSyncStatus("offline"));
+
+      document.addEventListener("input", (event) => {
+        const cell = event.target.closest("[data-row-id][data-field]");
+        if (!cell) return;
+
+        updateRow(cell.dataset.rowId, cell.dataset.field, cell.textContent.trim());
+        saveAndRender(false);
+      });
+
+      document.addEventListener("change", (event) => {
+        const control = event.target.closest("[data-row-id][data-field]");
+        if (!control) return;
+
+        updateRow(control.dataset.rowId, control.dataset.field, control.value);
+        saveAndRender();
+      });
+
+      document.addEventListener("click", (event) => {
+        const deleteBtn = event.target.closest("[data-delete-id]");
+        if (!deleteBtn) return;
+
+        const id = deleteBtn.dataset.deleteId;
+        state.months[state.activeMonth] = state.months[state.activeMonth].filter((row) => row.id !== id);
+        saveAndRender();
+      });
+    }
+
+    function checkPassword() {
+      if (els.passwordInput.value === PASSWORD) {
+        sessionStorage.setItem("pr_tracker_authed", "yes");
+        showApp();
+      } else {
+        toast("密码不正确");
+      }
+    }
+
+    function showApp() {
+      els.login.classList.add("hidden");
+      els.app.classList.remove("hidden");
+      render();
+      loadFromCloud();
+    }
+
+    function loadState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return structuredClone(defaultState);
+
+      try {
+        const parsed = JSON.parse(raw);
+        return {
+          activeMonth: parsed.activeMonth || "3月",
+          months: parsed.months || structuredClone(defaultState.months)
+        };
+      } catch {
+        return structuredClone(defaultState);
+      }
+    }
+
+    function loadSettings() {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) {
+        return {
+          masterKey: "",
+          binId: "",
+          theme: "auto",
+          fontSize: 16,
+          pendingSync: false
+        };
+      }
+
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return {
+          masterKey: "",
+          binId: "",
+          theme: "auto",
+          fontSize: 16,
+          pendingSync: false
+        };
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function saveSettings() {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    }
+
+    function saveAndRender(shouldRender = true) {
+      settings.pendingSync = true;
+      saveState();
+      saveSettings();
+
+      if (shouldRender) render();
+
+      scheduleSync();
+    }
+
+    function render() {
+      renderMonths();
+      renderTable();
+      renderStats();
+      updateSyncStatus(navigator.onLine ? "waiting" : "offline");
+    }
+
+    function renderMonths() {
+      els.monthTabs.innerHTML = "";
+
+      Object.keys(state.months).forEach((month) => {
+        const btn = document.createElement("button");
+        btn.className = `month-tab ${month === state.activeMonth ? "active" : ""}`;
+        btn.textContent = `${month} (${state.months[month].length})`;
+        btn.addEventListener("click", () => {
+          state.activeMonth = month;
+          saveState();
+          render();
+        });
+        els.monthTabs.appendChild(btn);
+      });
+    }
+
+    function renderTable() {
+      const rows = state.months[state.activeMonth] || [];
+      els.currentMonthTitle.textContent = `${state.activeMonth}数据`;
+      els.tableBody.innerHTML = "";
+
+      if (!rows.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td data-label="提示" colspan="9" style="color: var(--muted); padding: 24px;">
+            当前月份暂无数据，可以点击“加行”或“AI解析”添加。
+          </td>
+        `;
+        els.tableBody.appendChild(tr);
+        return;
+      }
+
+      rows.forEach((row) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td data-label="日期" contenteditable="true" data-row-id="${row.id}" data-field="date">${escapeHtml(row.date)}</td>
+          <td data-label="博主 / 客户" contenteditable="true" data-row-id="${row.id}" data-field="name">${escapeHtml(row.name)}</td>
+          <td data-label="项目 / 内容" contenteditable="true" data-row-id="${row.id}" data-field="project">${escapeHtml(row.project)}</td>
+          <td data-label="类型">
+            <select class="type-select" data-row-id="${row.id}" data-field="type">
+              ${option("现金", row.type)}
+              ${option("寄拍", row.type)}
+              ${option("置换", row.type)}
+              ${option("其他", row.type)}
+            </select>
+          </td>
+          <td data-label="金额" contenteditable="true" data-row-id="${row.id}" data-field="amount">${escapeHtml(String(row.amount || ""))}</td>
+          <td data-label="状态">
+            <select class="status-select" data-row-id="${row.id}" data-field="status">
+              ${option("待沟通", row.status)}
+              ${option("进行中", row.status)}
+              ${option("待入账", row.status)}
+              ${option("已到账", row.status)}
+              ${option("已寄出", row.status)}
+              ${option("已完成", row.status)}
+            </select>
+          </td>
+          <td data-label="微信 / 电话" contenteditable="true" data-row-id="${row.id}" data-field="contact">${escapeHtml(row.contact)}</td>
+          <td data-label="备注" contenteditable="true" data-row-id="${row.id}" data-field="note">${escapeHtml(row.note)}</td>
+          <td data-label="操作">
+            <div class="row-actions">
+              <button class="mini" data-delete-id="${row.id}">删除</button>
+            </div>
+          </td>
+        `;
+        els.tableBody.appendChild(tr);
+      });
+    }
+
+    function renderStats() {
+      const rows = state.months[state.activeMonth] || [];
+
+      const moneyRows = rows.filter((row) => row.type === "现金");
+      const pending = moneyRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
+      const confirmed = moneyRows
+        .filter((row) => row.status === "已到账" || row.status === "已完成")
+        .reduce((sum, row) => sum + toNumber(row.amount), 0);
+      const waiting = Math.max(pending - confirmed, 0);
+      const gift = rows.filter((row) => row.type === "寄拍").length;
+      const exchange = rows.filter((row) => row.type === "置换").length;
+
+      els.totalPending.textContent = formatMoney(pending);
+      els.totalConfirmed.textContent = formatMoney(confirmed);
+      els.totalWaiting.textContent = formatMoney(waiting);
+      els.giftCount.textContent = `${gift} / ${exchange}`;
+    }
+
+    function addRow(data = {}) {
+      const monthRows = state.months[state.activeMonth];
+      monthRows.push({
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+        date: data.date || "",
+        name: data.name || "",
+        project: data.project || "",
+        type: data.type || "现金",
+        amount: data.amount || "",
+        status: data.status || "待沟通",
+        contact: data.contact || "",
+        note: data.note || ""
+      });
+    }
+
+    function addMonth() {
+      const input = prompt("输入月份，例如：7月");
+      if (!input) return;
+
+      const month = input.trim();
+      if (!month) return;
+
+      if (!state.months[month]) {
+        state.months[month] = [];
+      }
+
+      state.activeMonth = month;
+      saveAndRender();
+    }
+
+    function updateRow(id, field, value) {
+      const row = state.months[state.activeMonth].find((item) => item.id === id);
+      if (!row) return;
+
+      row[field] = value;
+    }
+
+    function parseWechatText(text) {
+      if (!text.trim()) return [];
+
+      const blocks = text
+        .split(/\n{2,}|-{3,}|={3,}/)
+        .map((block) => block.trim())
+        .filter(Boolean);
+
+      return blocks.map(parseBlock).filter(Boolean);
+    }
+
+    function parseBlock(block) {
+      const clean = block.replace(/\s+/g, " ").trim();
+      if (!clean) return null;
+
+      const amountMatch = clean.match(/(?:¥|￥)?\s*(\d+(?:\.\d+)?)\s*(?:元|块|rmb|RMB)?/);
+      const phoneMatch = clean.match(/1[3-9]\d{9}/);
+      const wxMatch = clean.match(/(?:微信|wx|WX|vx|VX)[:：\s]*([a-zA-Z0-9_-]{5,})/);
+      const dateMatch = clean.match(/(\d{1,2}[月./-]\d{1,2}[日号]?|\d{1,2}[日号])/);
+
+      let type = "现金";
+      if (/置换|互换/.test(clean)) type = "置换";
+      if (/寄拍|样品|寄样|邮寄/.test(clean)) type = "寄拍";
+
+      let status = "待沟通";
+      if (/已到账|已收款|结清|已结|已付|已付款/.test(clean)) status = "已到账";
+      else if (/待入账|未结|未付|尾款|待付款|待结/.test(clean)) status = "待入账";
+      else if (/已寄出|已发货|快递|单号/.test(clean)) status = "已寄出";
+      else if (/完成|已发笔记|已发布|发出去了/.test(clean)) status = "已完成";
+      else if (/沟通中|确认中|进行中|排期/.test(clean)) status = "进行中";
+
+      const firstLine = block.split("\n").map((line) => line.trim()).filter(Boolean)[0] || "";
+      const name = guessName(firstLine);
+      const contact = wxMatch ? wxMatch[1] : phoneMatch ? phoneMatch[0] : "";
+      const amount = type === "现金" && amountMatch ? amountMatch[1] : "";
+      const project = guessProject(clean);
+
+      return {
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+        date: dateMatch ? dateMatch[1] : "",
+        name,
+        project,
+        type,
+        amount,
+        status,
+        contact,
+        note: clean
+      };
+    }
+
+    function guessName(line) {
+      return line
+        .replace(/\d{1,2}[月./-]\d{1,2}[日号]?/g, "")
+        .replace(/(?:¥|￥)?\s*\d+(?:\.\d+)?\s*(?:元|块)?/g, "")
+        .split(/[，,。；;：:\s]/)
+        .filter(Boolean)[0] || "";
+    }
+
+    function guessProject(text) {
+      if (/图文/.test(text)) return "小红书图文";
+      if (/视频/.test(text)) return "小红书视频";
+      if (/探店/.test(text)) return "探店合作";
+      if (/直播/.test(text)) return "直播合作";
+      if (/笔记/.test(text)) return "小红书笔记";
+      return "";
+    }
+
+    function scheduleSync() {
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => syncToCloud(false), 900);
+    }
+
+    async function loadFromCloud() {
+      if (!settings.masterKey || !settings.binId || !navigator.onLine) return;
+
+      try {
+        updateSyncStatus("syncing");
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${settings.binId}/latest`, {
+          headers: {
+            "X-Master-Key": settings.masterKey
+          }
+        });
+
+        if (!res.ok) throw new Error("读取失败");
+
+        const data = await res.json();
+
+        if (data.record && data.record.months) {
+          state = data.record;
+          saveState();
+          render();
+          updateSyncStatus("done");
+        }
+      } catch {
+        updateSyncStatus("error");
+      }
+    }
+
+    async function syncToCloud(force) {
+      if (isSyncing) return;
+      if (!settings.masterKey || !settings.binId) {
+        updateSyncStatus("local");
+        return;
+      }
+
+      if (!navigator.onLine) {
+        settings.pendingSync = true;
+        saveSettings();
+        updateSyncStatus("offline");
+        return;
+      }
+
+      if (!settings.pendingSync && !force) return;
+
+      try {
+        isSyncing = true;
+        updateSyncStatus("syncing");
+
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${settings.binId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Master-Key": settings.masterKey
+          },
+          body: JSON.stringify(state)
+        });
+
+        if (!res.ok) throw new Error("同步失败");
+
+        settings.pendingSync = false;
+        saveSettings();
+        updateSyncStatus("done");
+        toast("已同步");
+      } catch {
+        settings.pendingSync = true;
+        saveSettings();
+        updateSyncStatus("error");
+      } finally {
+        isSyncing = false;
+      }
+    }
+
+    function openSettings() {
+      els.masterKey.value = settings.masterKey || "";
+      els.binId.value = settings.binId || "";
+      els.themeSelect.value = settings.theme || "auto";
+      els.fontSize.value = settings.fontSize || 16;
+      els.settingsDrawer.classList.remove("hidden");
+    }
+
+    function closeSettings() {
+      saveSettingsFromForm();
+      els.settingsDrawer.classList.add("hidden");
+      applySettings();
+      syncToCloud(true);
+    }
+
+    function saveSettingsFromForm() {
+      settings.masterKey = els.masterKey.value.trim();
+      settings.binId = els.binId.value.trim();
+      settings.theme = els.themeSelect.value;
+      settings.fontSize = els.fontSize.value;
+      saveSettings();
+    }
+
+    function applySettings() {
+      document.documentElement.dataset.theme = settings.theme || "auto";
+
+      if ((settings.theme || "auto") === "light") {
+        document.documentElement.removeAttribute("data-theme");
+      } else {
+        document.documentElement.dataset.theme = settings.theme;
+      }
+
+      document.documentElement.style.setProperty("--font-size", `${settings.fontSize || 16}px`);
+    }
+
+    function updateSyncStatus(type) {
+      const dot = els.syncStatus.querySelector(".dot");
+      const text = els.syncStatus.querySelector("span");
+
+      dot.className = "dot";
+
+      const map = {
+        online: "网络已恢复，准备同步",
+        waiting: settings.pendingSync ? "有改动待同步" : "本地已保存",
+        syncing: "正在同步",
+        done: "云端已同步",
+        local: "本地已保存，未配置云端",
+        offline: "离线保存中",
+        error: "同步失败，稍后重试"
+      };
+
+      if (type === "done" || type === "local") dot.classList.add("ok");
+      if (type === "offline" || type === "error") dot.classList.add("offline");
+
+      text.textContent = map[type] || "等待同步";
+    }
+
+    function option(value, current) {
+      return `<option value="${value}" ${value === current ? "selected" : ""}>${value}</option>`;
+    }
+
+    function toNumber(value) {
+      const num = Number(String(value || "").replace(/[^\d.]/g, ""));
+      return Number.isFinite(num) ? num : 0;
+    }
+
+    function formatMoney(value) {
+      return `¥${Math.round(value).toLocaleString("zh-CN")}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function toast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.remove("hidden");
+
+      clearTimeout(els.toast.timer);
+      els.toast.timer = setTimeout(() => {
+        els.toast.classList.add("hidden");
+      }, 1800);
+    }
+  </script>
 </body>
 </html>
