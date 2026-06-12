@@ -590,7 +590,7 @@
 
   <section id="aiDrawer" class="drawer hidden">
     <h3>AI解析微信对话</h3>
-    <p>把微信里复制的杂乱聊天内容粘贴进来。系统会识别金额、日期、合作类型、状态、联系方式和备注，并添加到当前月份。</p>
+    <p>把微信里复制的杂乱聊天内容粘贴进来。AI 会理解品牌、合作方式、价格、淘宝垫付、款式要求、截止日期和履约状态，并自动填入当前月份。</p>
 
     <div class="field">
       <label for="chatInput">微信聊天内容</label>
@@ -614,6 +614,21 @@
     <div class="field">
       <label for="binId">JSONBin Bin ID</label>
       <input id="binId" class="input" placeholder="Bin ID" />
+    </div>
+
+    <div class="field">
+      <label for="aiApiUrl">AI API 地址</label>
+      <input id="aiApiUrl" class="input" placeholder="例如：https://你的接口地址/v1/chat/completions" />
+    </div>
+
+    <div class="field">
+      <label for="aiApiKey">AI API Key</label>
+      <input id="aiApiKey" class="input" type="password" placeholder="输入 API Key" />
+    </div>
+
+    <div class="field">
+      <label for="aiModel">AI 模型名称</label>
+      <input id="aiModel" class="input" placeholder="例如：你接口支持的模型名" />
     </div>
 
     <div class="field">
@@ -706,6 +721,9 @@
       settingsDrawer: document.getElementById("settingsDrawer"),
       masterKey: document.getElementById("masterKey"),
       binId: document.getElementById("binId"),
+      aiApiUrl: document.getElementById("aiApiUrl"),
+      aiApiKey: document.getElementById("aiApiKey"),
+      aiModel: document.getElementById("aiModel"),
       themeSelect: document.getElementById("themeSelect"),
       fontSize: document.getElementById("fontSize"),
       syncNowBtn: document.getElementById("syncNowBtn"),
@@ -745,18 +763,56 @@
 
       els.addMonthBtn.addEventListener("click", addMonth);
 
-      els.parseBtn.addEventListener("click", () => {
-        const rows = parseWechatText(els.chatInput.value);
-        if (!rows.length) {
-          toast("没有识别到可添加的数据");
+      els.parseBtn.addEventListener("click", async () => {
+        const text = els.chatInput.value.trim();
+
+        if (!text) {
+          toast("请先粘贴微信聊天内容");
           return;
         }
 
-        state.months[state.activeMonth].push(...rows);
-        els.chatInput.value = "";
-        els.aiDrawer.classList.add("hidden");
-        saveAndRender();
-        toast(`已添加 ${rows.length} 条`);
+        saveSettingsFromForm();
+
+        if (!settings.aiApiUrl || !settings.aiApiKey || !settings.aiModel) {
+          toast("请先在设置里填写 AI API 配置");
+          els.settingsDrawer.classList.remove("hidden");
+          return;
+        }
+
+        try {
+          els.parseBtn.disabled = true;
+          els.parseBtn.textContent = "解析中...";
+
+          const rows = await parseWechatTextWithAI(text);
+
+          if (!rows.length) {
+            toast("AI 没有识别到可添加的数据");
+            return;
+          }
+
+          state.months[state.activeMonth].push(...rows);
+          els.chatInput.value = "";
+          els.aiDrawer.classList.add("hidden");
+          saveAndRender();
+          toast(`已添加 ${rows.length} 条`);
+        } catch (error) {
+          console.error(error);
+
+          const fallbackRows = parseWechatText(els.chatInput.value);
+
+          if (fallbackRows.length) {
+            state.months[state.activeMonth].push(...fallbackRows);
+            els.chatInput.value = "";
+            els.aiDrawer.classList.add("hidden");
+            saveAndRender();
+            toast(`AI 失败，已用本地规则添加 ${fallbackRows.length} 条`);
+          } else {
+            toast("AI 解析失败，请检查 API 配置");
+          }
+        } finally {
+          els.parseBtn.disabled = false;
+          els.parseBtn.textContent = "解析并添加";
+        }
       });
 
       els.syncNowBtn.addEventListener("click", () => {
@@ -909,6 +965,9 @@
         return {
           masterKey: "",
           binId: "",
+          aiApiUrl: "",
+          aiApiKey: "",
+          aiModel: "",
           theme: "auto",
           fontSize: 16,
           pendingSync: false
@@ -920,6 +979,9 @@
         return {
           masterKey: parsed.masterKey || "",
           binId: parsed.binId || "",
+          aiApiUrl: parsed.aiApiUrl || "",
+          aiApiKey: parsed.aiApiKey || "",
+          aiModel: parsed.aiModel || "",
           theme: parsed.theme || "auto",
           fontSize: parsed.fontSize || 16,
           pendingSync: parsed.pendingSync || false
@@ -928,6 +990,9 @@
         return {
           masterKey: "",
           binId: "",
+          aiApiUrl: "",
+          aiApiKey: "",
+          aiModel: "",
           theme: "auto",
           fontSize: 16,
           pendingSync: false
@@ -1132,6 +1197,187 @@
       row[field] = value;
     }
 
+    async function parseWechatTextWithAI(text) {
+      const payload = {
+        model: settings.aiModel,
+        messages: [
+          {
+            role: "system",
+            content: buildAIParserSystemPrompt()
+          },
+          {
+            role: "user",
+            content: text
+          }
+        ],
+        temperature: 0.1,
+        response_format: {
+          type: "json_object"
+        }
+      };
+
+      const res = await fetch(settings.aiApiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${settings.aiApiKey}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        throw new Error(`AI API 请求失败：${res.status}`);
+      }
+
+      const data = await res.json();
+      const content = extractAIContent(data);
+      const parsed = safeParseJSON(content);
+
+      const rows = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray(parsed.rows)
+          ? parsed.rows
+          : [];
+
+      return rows.map(normalizeAIRow).filter(Boolean);
+    }
+
+    function buildAIParserSystemPrompt() {
+      return `你是一个小红书 PR 合作数据整理助手。你的任务是从用户粘贴的微信聊天记录中，理解合作信息，并整理成表格数据。
+
+你必须只返回 JSON，不要返回解释、Markdown 或多余文字。
+
+返回格式必须是：
+{
+  "rows": [
+    {
+      "brandName": "",
+      "cooperationType": "",
+      "price": "",
+      "taobaoAdvance": "",
+      "principalReturned": false,
+      "styleRequirement": "",
+      "deadline": "",
+      "received": false,
+      "shot": false,
+      "published": false,
+      "returned": false,
+      "sold": false,
+      "soldPrice": "",
+      "settled": false
+    }
+  ]
+}
+
+字段解释：
+- brandName：品牌名称、店铺名、客户名或合作方名称。
+- cooperationType：合作方式，只能从「寄拍」「置换」「报备」「现金」「其他」中选择。
+- price：合作报价、推广费、广告费、稿费，只填写数字字符串，不要写货币符号。
+- taobaoAdvance：淘宝垫付、本金、拍下金额、订单垫付款，只填写数字字符串。
+- principalReturned：如果聊天中表示本金已返、垫付款已退、已返款，则为 true，否则 false。
+- styleRequirement：款式、颜色、尺码、内容要求、拍摄要求、笔记要求、寄回要求等。
+- deadline：截止日期、最晚发布时间、交稿时间。保留聊天里的日期表达即可。
+- received：如果已经收到货、签收、拿到样品，则为 true。
+- shot：如果已经拍摄、拍完、出图、素材完成，则为 true。
+- published：如果已经发布、已发笔记、链接已出，则为 true。
+- returned：如果已经寄回、退回、回寄，则为 true。
+- sold：如果样品已经卖出、出掉、转出，则为 true。
+- soldPrice：卖出价格，只填写数字字符串。
+- settled：如果已经结款、到账、付清、尾款已付，则为 true。
+
+理解规则：
+1. 一段聊天可能包含多条合作，请拆成多条 rows。
+2. 如果某个字段没有明确出现，填空字符串或 false，不要编造。
+3. 金额字段只保留数字，例如"¥399""399元""三百九十九"尽量转成 "399"。
+4. 如果出现"置换""寄拍""报备""现金合作""广告费"等，要合理判断 cooperationType。
+5. 如果同时有"价格"和"淘宝垫付"，不要混淆；推广报价填 price，自己先拍下垫付的本金填 taobaoAdvance。
+6. 如果聊天里只有状态更新，也要尽量根据上下文生成一条记录。
+7. 不要输出任何隐私提醒、解释或分析过程。`;
+    }
+
+    function extractAIContent(data) {
+      if (data && data.choices && data.choices[0]) {
+        const choice = data.choices[0];
+
+        if (choice.message && typeof choice.message.content === "string") {
+          return choice.message.content;
+        }
+
+        if (typeof choice.text === "string") {
+          return choice.text;
+        }
+      }
+
+      if (typeof data.output_text === "string") {
+        return data.output_text;
+      }
+
+      if (typeof data.content === "string") {
+        return data.content;
+      }
+
+      return JSON.stringify(data);
+    }
+
+    function safeParseJSON(content) {
+      const clean = String(content || "")
+        .trim()
+        .replace(/^\`\`\`json/i, "")
+        .replace(/^\`\`\`/i, "")
+        .replace(/\`\`\`$/i, "")
+        .trim();
+
+      try {
+        return JSON.parse(clean);
+      } catch {
+        const match = clean.match(/\{[\s\S]*\}/);
+        if (!match) return { rows: [] };
+
+        try {
+          return JSON.parse(match[0]);
+        } catch {
+          return { rows: [] };
+        }
+      }
+    }
+
+    function normalizeAIRow(row) {
+      if (!row || typeof row !== "object") return null;
+
+      const cooperationTypes = ["寄拍", "置换", "报备", "现金", "其他"];
+      const cooperationType = cooperationTypes.includes(row.cooperationType)
+        ? row.cooperationType
+        : "其他";
+
+      return {
+        id: createId(),
+        brandName: cleanText(row.brandName),
+        cooperationType,
+        price: cleanMoney(row.price),
+        taobaoAdvance: cleanMoney(row.taobaoAdvance),
+        principalReturned: Boolean(row.principalReturned),
+        styleRequirement: cleanText(row.styleRequirement),
+        deadline: cleanText(row.deadline),
+        received: Boolean(row.received),
+        shot: Boolean(row.shot),
+        published: Boolean(row.published),
+        returned: Boolean(row.returned),
+        sold: Boolean(row.sold),
+        soldPrice: cleanMoney(row.soldPrice),
+        settled: Boolean(row.settled)
+      };
+    }
+
+    function cleanText(value) {
+      return String(value || "").trim();
+    }
+
+    function cleanMoney(value) {
+      const text = String(value || "").trim();
+      const number = text.replace(/[^\d.]/g, "");
+      return number || "";
+    }
+
     function parseWechatText(text) {
       if (!text.trim()) return [];
 
@@ -1279,6 +1525,9 @@
     function openSettings() {
       els.masterKey.value = settings.masterKey || "";
       els.binId.value = settings.binId || "";
+      els.aiApiUrl.value = settings.aiApiUrl || "";
+      els.aiApiKey.value = settings.aiApiKey || "";
+      els.aiModel.value = settings.aiModel || "";
       els.themeSelect.value = settings.theme || "auto";
       els.fontSize.value = settings.fontSize || 16;
       els.settingsDrawer.classList.remove("hidden");
@@ -1294,6 +1543,9 @@
     function saveSettingsFromForm() {
       settings.masterKey = els.masterKey.value.trim();
       settings.binId = els.binId.value.trim();
+      settings.aiApiUrl = els.aiApiUrl.value.trim();
+      settings.aiApiKey = els.aiApiKey.value.trim();
+      settings.aiModel = els.aiModel.value.trim();
       settings.theme = els.themeSelect.value;
       settings.fontSize = els.fontSize.value;
       saveSettings();
