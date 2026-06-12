@@ -1115,7 +1115,7 @@
     function showApp() {
       els.login.classList.add("hidden");
       els.app.classList.remove("hidden");
-      render();
+      try { render(); } catch(e) { console.error(e); }
       // 如果本地为空，从 GitHub 数据文件加载
       if (!localStorage.getItem(STORAGE_KEY) && !localStorage.getItem(OLD_STORAGE_KEY)) {
         loadFromGitHub();
@@ -1124,15 +1124,19 @@
       }
     }
 
+    function cloneDefault(o) {
+      return JSON.parse(JSON.stringify(o));
+    }
+
     function loadState() {
       const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(OLD_STORAGE_KEY);
-      if (!raw) return structuredClone(defaultState);
+      if (!raw) return cloneDefault(defaultState);
 
       try {
         const parsed = JSON.parse(raw);
         return normalizeState(parsed);
       } catch {
-        return structuredClone(defaultState);
+        return cloneDefault(defaultState);
       }
     }
 
