@@ -305,6 +305,10 @@
       gap: 12px;
       padding: 16px;
       border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--card);
     }
 
     .panel-head h2 {
@@ -347,11 +351,18 @@
     td[contenteditable="true"] {
       outline: none;
       border-radius: 10px;
+      max-width: 14rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     td[contenteditable="true"]:focus {
       background: var(--primary-soft);
       box-shadow: inset 0 0 0 1px var(--primary-line);
+      max-width: none;
+      overflow: visible;
+      white-space: normal;
     }
 
     .status-select,
@@ -990,6 +1001,25 @@
 
         const value = control.type === "checkbox" ? control.checked : control.value;
         updateRow(control.dataset.rowId, control.dataset.field, value);
+
+        // 合作方式变更时，自动调整关联字段
+        if (control.dataset.field === "cooperationType") {
+          const row = state.months[state.activeMonth].find((item) => item.id === control.dataset.rowId);
+          if (row) {
+            if (value.includes("置换")) {
+              row.returned = "N/A";
+              row.settled = "N/A";
+              row.sold = false;
+              row.soldPrice = "";
+            } else {
+              row.sold = "N/A";
+              row.soldPrice = "N/A";
+              row.returned = false;
+              row.settled = false;
+            }
+          }
+        }
+
         saveAndRender();
       });
 
