@@ -634,6 +634,11 @@
     <section class="panel">
       <div class="panel-head">
         <h2 id="currentMonthTitle">3月数据</h2>
+        <select id="typeFilter" class="type-select" style="min-width:7rem;">
+          <option value="all">全部</option>
+          <option value="paid">寄拍/送拍</option>
+          <option value="exchange">置换</option>
+        </select>
         <div class="actions">
           <button id="addRowBtn" class="btn">加行</button>
           <button id="addColumnBtn" class="btn secondary">加列</button>
@@ -796,6 +801,7 @@
     let isSyncing = false;
     let lastAiDebugInfo = null;
     let pendingAiRows = [];
+    let typeFilterValue = "all";
 
     const els = {
       login: document.getElementById("login"),
@@ -805,6 +811,7 @@
       syncStatus: document.getElementById("syncStatus"),
       monthTabs: document.getElementById("monthTabs"),
       currentMonthTitle: document.getElementById("currentMonthTitle"),
+      typeFilter: document.getElementById("typeFilter"),
       tableHead: document.getElementById("tableHead"),
       tableBody: document.getElementById("tableBody"),
       totalIncome: document.getElementById("totalIncome"),
@@ -886,6 +893,11 @@
       els.closeSettingsBtn.addEventListener("click", closeSettings);
 
       els.addMonthBtn.addEventListener("click", addMonth);
+
+      els.typeFilter.addEventListener("change", () => {
+        typeFilterValue = els.typeFilter.value;
+        renderTable();
+      });
 
       els.migrateBtn.addEventListener("click", () => {
         if (!confirm("将3月全部数据迁移到6月？3月将被清空。")) return;
@@ -1254,7 +1266,13 @@
     }
 
     function renderTable() {
-      const rows = state.months[state.activeMonth] || [];
+      const allRows = state.months[state.activeMonth] || [];
+      const rows = typeFilterValue === "all" ? allRows : allRows.filter((r) => {
+        const t = String(r.cooperationType || "");
+        if (typeFilterValue === "paid") return t.includes("寄拍") || t.includes("送拍");
+        if (typeFilterValue === "exchange") return t.includes("置换");
+        return true;
+      });
       const columns = state.columns || defaultColumns;
       els.currentMonthTitle.textContent = `${state.activeMonth}数据`;
 
