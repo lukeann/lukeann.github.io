@@ -1299,6 +1299,10 @@
       rows.forEach((row) => {
         const tr = document.createElement("tr");
 
+        const coopType = String(row.cooperationType || "");
+        const isExchange = coopType.includes("置换");
+        const isPaid = coopType.includes("寄拍") || coopType.includes("送拍");
+
         const cells = columns.map((column) => {
           const value = row[column.key] ?? "";
 
@@ -1315,7 +1319,9 @@
           }
 
           if (column.type === "check") {
-            if (value === "N/A" || value === "—") {
+            // 根据合作类型决定是否显示为不可用
+            const naFields = isExchange ? ["returned", "settled"] : (isPaid ? ["sold"] : []);
+            if (naFields.includes(column.key) || value === "N/A" || value === "—") {
               return `
                 <td data-label="${escapeHtml(column.label)}">
                   <div style="text-align:center; opacity:0.4; font-size:0.875rem;">—</div>
@@ -1330,6 +1336,18 @@
                 </label>
               </td>
             `;
+          }
+
+          // money 列也处理 N/A
+          if (column.type === "money") {
+            const naMoneyFields = isExchange ? [] : (isPaid ? ["soldPrice"] : []);
+            if (naMoneyFields.includes(column.key)) {
+              return `
+                <td data-label="${escapeHtml(column.label)}">
+                  <div style="text-align:center; opacity:0.4; font-size:0.875rem;">—</div>
+                </td>
+              `;
+            }
           }
 
           return `
