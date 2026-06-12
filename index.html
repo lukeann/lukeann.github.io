@@ -264,7 +264,7 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
       gap: 14px;
       margin-bottom: 16px;
     }
@@ -614,16 +614,16 @@
 
     <section class="stats">
       <div class="stat">
+        <span>总收入</span>
+        <strong id="totalIncome">¥0</strong>
+      </div>
+      <div class="stat">
         <span>寄拍/送拍收入</span>
         <strong id="totalPending">¥0</strong>
       </div>
       <div class="stat">
         <span>置换已卖出</span>
         <strong id="totalConfirmed">¥0</strong>
-      </div>
-      <div class="stat">
-        <span>寄拍/送拍 已结款</span>
-        <strong id="totalWaiting">¥0</strong>
       </div>
       <div class="stat">
         <span>寄拍送拍 / 置换</span>
@@ -806,9 +806,9 @@
       currentMonthTitle: document.getElementById("currentMonthTitle"),
       tableHead: document.getElementById("tableHead"),
       tableBody: document.getElementById("tableBody"),
+      totalIncome: document.getElementById("totalIncome"),
       totalPending: document.getElementById("totalPending"),
       totalConfirmed: document.getElementById("totalConfirmed"),
-      totalWaiting: document.getElementById("totalWaiting"),
       giftCount: document.getElementById("giftCount"),
       addRowBtn: document.getElementById("addRowBtn"),
       addColumnBtn: document.getElementById("addColumnBtn"),
@@ -1273,6 +1273,13 @@
           }
 
           if (column.type === "check") {
+            if (value === "N/A" || value === "—") {
+              return `
+                <td data-label="${escapeHtml(column.label)}">
+                  <div style="text-align:center; opacity:0.4; font-size:0.875rem;">—</div>
+                </td>
+              `;
+            }
             return `
               <td data-label="${escapeHtml(column.label)}">
                 <label class="check-cell">
@@ -1317,11 +1324,10 @@
 
       const paidIncome = paidRows.reduce((sum, r) => sum + toNumber(r.price), 0);
       const soldIncome = exchangeRows.reduce((sum, r) => sum + (r.sold ? toNumber(r.soldPrice) : 0), 0);
-      const settledCount = paidRows.filter((r) => r.settled === true).length;
 
+      els.totalIncome.textContent = formatMoney(paidIncome + soldIncome);
       els.totalPending.textContent = formatMoney(paidIncome);
       els.totalConfirmed.textContent = formatMoney(soldIncome);
-      els.totalWaiting.textContent = `${settledCount} / ${paidRows.length}`;
       els.giftCount.textContent = `${paidRows.length} / ${exchangeRows.length}`;
     }
 
