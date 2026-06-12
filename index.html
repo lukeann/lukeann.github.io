@@ -390,6 +390,62 @@
       accent-color: var(--primary);
     }
 
+    .ai-debug {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--card);
+      padding: 12px;
+    }
+
+    .ai-debug-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .ai-debug details {
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+      margin-top: 10px;
+    }
+
+    .ai-debug summary {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .ai-debug pre {
+      max-height: 260px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: var(--primary-soft);
+      border-radius: 12px;
+      padding: 10px;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .ai-debug-warnings {
+      display: grid;
+      gap: 6px;
+    }
+
+    .ai-debug-warning {
+      border: 1px solid #fed7aa;
+      background: #fff7ed;
+      color: #9a3412;
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+
     .drawer {
       position: fixed;
       inset: auto 18px 18px auto;
@@ -597,8 +653,38 @@
       <textarea id="chatInput" placeholder="例：&#10;小王 3月15号 小红书图文 置换 已寄出&#10;报价 800，尾款未结&#10;微信 wx123456"></textarea>
     </div>
 
+    <div id="aiDebugPanel" class="ai-debug hidden">
+      <div class="ai-debug-head">
+        <strong>AI 解析详情</strong>
+        <button id="copyAiDebugBtn" class="mini" type="button">复制调试信息</button>
+      </div>
+
+      <div id="aiDebugWarnings" class="ai-debug-warnings"></div>
+
+      <details open>
+        <summary>标准化后的入表数据</summary>
+        <pre id="aiDebugNormalized"></pre>
+      </details>
+
+      <details>
+        <summary>AI 原始返回</summary>
+        <pre id="aiDebugRaw"></pre>
+      </details>
+
+      <details>
+        <summary>JSON 解析结果</summary>
+        <pre id="aiDebugParsed"></pre>
+      </details>
+
+      <details>
+        <summary>请求摘要</summary>
+        <pre id="aiDebugRequest"></pre>
+      </details>
+    </div>
+
     <div class="actions">
-      <button id="parseBtn" class="btn">解析并添加</button>
+      <button id="parseBtn" class="btn">解析并预览</button>
+      <button id="confirmAiRowsBtn" class="btn secondary hidden">确认添加</button>
       <button id="closeAiBtn" class="btn secondary">关闭</button>
     </div>
   </section>
@@ -658,7 +744,7 @@
   <div id="toast" class="toast hidden"></div>
 
   <script>
-    const PASSWORD = "1234";
+    const PASSWORD = "200366";
     const STORAGE_KEY = "pr_tracker_v2";
     const SETTINGS_KEY = "pr_tracker_settings_v2";
     const OLD_STORAGE_KEY = "pr_tracker";
@@ -695,6 +781,8 @@
     let settings = loadSettings();
     let syncTimer = null;
     let isSyncing = false;
+    let lastAiDebugInfo = null;
+    let pendingAiRows = [];
 
     const els = {
       login: document.getElementById("login"),
@@ -718,7 +806,15 @@
       aiDrawer: document.getElementById("aiDrawer"),
       chatInput: document.getElementById("chatInput"),
       parseBtn: document.getElementById("parseBtn"),
+      confirmAiRowsBtn: document.getElementById("confirmAiRowsBtn"),
       closeAiBtn: document.getElementById("closeAiBtn"),
+      aiDebugPanel: document.getElementById("aiDebugPanel"),
+      aiDebugWarnings: document.getElementById("aiDebugWarnings"),
+      aiDebugNormalized: document.getElementById("aiDebugNormalized"),
+      aiDebugRaw: document.getElementById("aiDebugRaw"),
+      aiDebugParsed: document.getElementById("aiDebugParsed"),
+      aiDebugRequest: document.getElementById("aiDebugRequest"),
+      copyAiDebugBtn: document.getElementById("copyAiDebugBtn"),
       settingsDrawer: document.getElementById("settingsDrawer"),
       masterKey: document.getElementById("masterKey"),
       binId: document.getElementById("binId"),
@@ -756,8 +852,21 @@
 
       els.addColumnBtn.addEventListener("click", addColumn);
 
-      els.aiBtn.addEventListener("click", () => els.aiDrawer.classList.remove("hidden"));
-      els.closeAiBtn.addEventListener("click", () => els.aiDrawer.classList.add("hidden"));
+      els.aiBtn.addEventListener("click", () => {
+        els.aiDrawer.classList.remove("hidden");
+        els.aiDebugPanel.classList.add("hidden");
+        els.confirmAiRowsBtn.classList.add("hidden");
+        pendingAiRows = [];
+        lastAiDebugInfo = null;
+        els.chatInput.value = "";
+      });
+      els.closeAiBtn.addEventListener("click", () => {
+        els.aiDrawer.classList.add("hidden");
+        els.aiDebugPanel.classList.add("hidden");
+        els.confirmAiRowsBtn.classList.add("hidden");
+        pendingAiRows = [];
+        lastAiDebugInfo = null;
+      });
 
       els.settingsBtn.addEventListener("click", openSettings);
       els.closeSettingsBtn.addEventListener("click", closeSettings);
@@ -783,36 +892,63 @@
         try {
           els.parseBtn.disabled = true;
           els.parseBtn.textContent = "解析中...";
+          els.confirmAiRowsBtn.classList.add("hidden");
 
           const rows = await parseWechatTextWithAI(text);
 
           if (!rows.length) {
-            toast("AI 没有识别到可添加的数据");
+            toast("AI 没有识别到可添加的数据，请查看解析详情");
             return;
           }
 
-          state.months[state.activeMonth].push(...rows);
-          els.chatInput.value = "";
-          els.aiDrawer.classList.add("hidden");
-          saveAndRender();
-          toast(`已添加 ${rows.length} 条`);
+          pendingAiRows = rows;
+          els.confirmAiRowsBtn.classList.remove("hidden");
+          toast("AI 已解析，请先查看解析详情，确认后点击「确认添加」");
         } catch (error) {
           console.error(error);
+          toast("AI 解析失败，请查看解析详情");
 
           const fallbackRows = parseWechatText(els.chatInput.value);
-
           if (fallbackRows.length) {
-            state.months[state.activeMonth].push(...fallbackRows);
-            els.chatInput.value = "";
-            els.aiDrawer.classList.add("hidden");
-            saveAndRender();
-            toast(`AI 失败，已用本地规则添加 ${fallbackRows.length} 条`);
-          } else {
-            toast("AI 解析失败，请检查 API 配置");
+            pendingAiRows = fallbackRows;
+            els.confirmAiRowsBtn.classList.remove("hidden");
+            toast("AI 失败，已用本地规则解析，请查看后确认添加");
           }
         } finally {
           els.parseBtn.disabled = false;
-          els.parseBtn.textContent = "解析并添加";
+          els.parseBtn.textContent = "解析并预览";
+        }
+      });
+
+      els.confirmAiRowsBtn.addEventListener("click", () => {
+        if (!pendingAiRows.length) {
+          toast("没有待添加的数据");
+          return;
+        }
+
+        const count = pendingAiRows.length;
+        state.months[state.activeMonth].push(...pendingAiRows);
+        pendingAiRows = [];
+        els.chatInput.value = "";
+        els.aiDrawer.classList.add("hidden");
+        els.aiDebugPanel.classList.add("hidden");
+        els.confirmAiRowsBtn.classList.add("hidden");
+        lastAiDebugInfo = null;
+        saveAndRender();
+        toast(`已添加 ${count} 条`);
+      });
+
+      els.copyAiDebugBtn.addEventListener("click", async () => {
+        if (!lastAiDebugInfo) {
+          toast("暂无调试信息");
+          return;
+        }
+
+        try {
+          await navigator.clipboard.writeText(JSON.stringify(lastAiDebugInfo, null, 2));
+          toast("已复制 AI 调试信息");
+        } catch {
+          toast("复制失败，请手动复制");
         }
       });
 
@@ -1205,6 +1341,14 @@
     }
 
     async function parseWechatTextWithAI(text) {
+      const requestSummary = {
+        apiUrl: settings.aiApiUrl,
+        model: settings.aiModel,
+        inputLength: text.length,
+        apiKeyPreview: maskApiKey(settings.aiApiKey),
+        time: new Date().toISOString()
+      };
+
       const payload = {
         model: settings.aiModel,
         messages: [
@@ -1217,36 +1361,162 @@
             content: text
           }
         ],
-        temperature: 0.1,
+        temperature: 0,
+        max_tokens: 2500,
         response_format: {
           type: "json_object"
         }
       };
 
-      const res = await fetch(settings.aiApiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${settings.aiApiKey}`
-        },
-        body: JSON.stringify(payload)
-      });
+      let rawData = null;
+      let rawContent = "";
+      let parsedJson = null;
+      let normalizedRows = [];
+      let warnings = [];
 
-      if (!res.ok) {
-        throw new Error(`AI API 请求失败：${res.status}`);
+      try {
+        const res = await fetch(settings.aiApiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + settings.aiApiKey
+          },
+          body: JSON.stringify(payload)
+        });
+
+        rawData = await res.json().catch(() => null);
+
+        if (!res.ok) {
+          warnings.push("AI API 请求失败，HTTP 状态码：" + res.status);
+          throw new Error("AI API 请求失败：" + res.status);
+        }
+
+        rawContent = extractAIContent(rawData);
+        parsedJson = safeParseJSON(rawContent);
+
+        const rows = Array.isArray(parsedJson)
+          ? parsedJson
+          : Array.isArray(parsedJson.rows)
+            ? parsedJson.rows
+            : [];
+
+        normalizedRows = rows.map(normalizeAIRow).filter(Boolean);
+        warnings = warnings.concat(diagnoseAIResult(text, rows, normalizedRows));
+
+        lastAiDebugInfo = {
+          requestSummary,
+          rawData,
+          rawContent,
+          parsedJson,
+          extractedRows: rows,
+          normalizedRows,
+          warnings
+        };
+
+        renderAiDebug(lastAiDebugInfo);
+
+        return normalizedRows;
+      } catch (error) {
+        lastAiDebugInfo = {
+          requestSummary,
+          rawData,
+          rawContent,
+          parsedJson,
+          normalizedRows,
+          warnings: warnings.concat(error.message || "AI 解析异常")
+        };
+
+        renderAiDebug(lastAiDebugInfo);
+        throw error;
+      }
+    }
+
+    function maskApiKey(key) {
+      const text = String(key || "");
+      if (!text) return "";
+      if (text.length <= 8) return "***";
+      return text.slice(0, 4) + "..." + text.slice(-4);
+    }
+
+    function renderAiDebug(info) {
+      els.aiDebugPanel.classList.remove("hidden");
+
+      els.aiDebugRequest.textContent = JSON.stringify(info.requestSummary || {}, null, 2);
+      els.aiDebugRaw.textContent = info.rawContent || JSON.stringify(info.rawData || {}, null, 2);
+      els.aiDebugParsed.textContent = JSON.stringify(info.parsedJson || {}, null, 2);
+      els.aiDebugNormalized.textContent = JSON.stringify(info.normalizedRows || [], null, 2);
+
+      const warnings = info.warnings || [];
+
+      if (!warnings.length) {
+        els.aiDebugWarnings.innerHTML = "";
+        return;
       }
 
-      const data = await res.json();
-      const content = extractAIContent(data);
-      const parsed = safeParseJSON(content);
+      els.aiDebugWarnings.innerHTML = warnings.map((warning) => {
+        return '<div class="ai-debug-warning">' + escapeHtml(warning) + "</div>";
+      }).join("");
+    }
 
-      const rows = Array.isArray(parsed)
-        ? parsed
-        : Array.isArray(parsed.rows)
-          ? parsed.rows
-          : [];
+    function diagnoseAIResult(inputText, rawRows, normalizedRows) {
+      const warnings = [];
+      const text = String(inputText || "");
+      const firstRow = normalizedRows[0];
 
-      return rows.map(normalizeAIRow).filter(Boolean);
+      if (!normalizedRows.length) {
+        warnings.push("没有得到可入表的数据。请检查 AI 原始返回是否包含 rows 数组。");
+        return warnings;
+      }
+
+      if (rawRows.length !== normalizedRows.length) {
+        warnings.push("AI 返回 rows 数量与标准化后的数量不一致，可能有行被过滤。");
+      }
+
+      normalizedRows.forEach((row, index) => {
+        const prefix = "第 " + (index + 1) + " 条：";
+
+        if (!row.brandName) {
+          warnings.push(prefix + "品牌名称为空。若聊天中没有明确品牌名，这是正常的。");
+        }
+
+        if (!row.cooperationType || row.cooperationType === "其他") {
+          warnings.push(prefix + "合作方式不明确或被标准化为「其他」。");
+        }
+
+        if (!row.price) {
+          warnings.push(prefix + "价格为空。");
+        }
+
+        if (row.published === true && /今晚发|今天晚上发|几点|大概|准备发/.test(text) && !/已发布|已发笔记|链接|笔记发了/.test(text)) {
+          warnings.push(prefix + "可能误判已发布：文本像是在约定发布时间，但没有明确已发布。");
+        }
+
+        if (row.settled === true && /结款须知|上报|工作日|不结推广费|结算50%/.test(text) && !/已结款|到账|已到账|付清|已付款/.test(text)) {
+          warnings.push(prefix + "可能误判已结款：文本出现结款规则，但没有明确到账。");
+        }
+
+        if (row.brandName && /猪猪虾|中通快递|快递|佛山市|同华西路|小红书/.test(row.brandName)) {
+          warnings.push(prefix + "品牌名称可能误填为账号名、快递名或地址信息。");
+        }
+      });
+
+      if (/送拍\s*40|送拍40|那\s*40\s*好吗/.test(text) && firstRow && firstRow.price !== "40") {
+        warnings.push("文本中出现最终送拍 40，但第一条结果 price 不是 40，可能未按最终确认口径解析。");
+      }
+
+      if (/送拍\s*40|送拍40|那\s*40\s*好吗/.test(text) && firstRow && firstRow.cooperationType !== "送拍") {
+        warnings.push("文本中出现最终送拍 40，但第一条结果 cooperationType 不是「送拍」。");
+      }
+
+      if (/寄拍\s*180|寄拍180|一条视频\s*180/.test(text) && /送拍\s*40|送拍40|那\s*40\s*好吗/.test(text) && firstRow && firstRow.price === "180") {
+        warnings.push("AI 可能采用了早期报价 180，而不是后续最终价格 40。");
+      }
+
+      if (/已经寄出了|寄回单号|退货地址/.test(text) && firstRow && firstRow.returned !== true) {
+        warnings.push("文本中出现寄回相关信息，但 returned 不是 true，请检查是否漏判已寄回。");
+      }
+
+      return warnings;
     }
 
     function buildAIParserSystemPrompt() {
@@ -1470,6 +1740,20 @@
 
         if (data.record && data.record.months) {
           state = normalizeState(data.record);
+
+          // 从云端恢复设置
+          if (data.record._settings) {
+            const cloudSettings = data.record._settings;
+            settings.masterKey = cloudSettings.masterKey || settings.masterKey;
+            settings.binId = cloudSettings.binId || settings.binId;
+            settings.aiApiUrl = cloudSettings.aiApiUrl || settings.aiApiUrl;
+            settings.aiApiKey = cloudSettings.aiApiKey || settings.aiApiKey;
+            settings.aiModel = cloudSettings.aiModel || settings.aiModel;
+            settings.theme = cloudSettings.theme || settings.theme;
+            settings.fontSize = cloudSettings.fontSize || settings.fontSize;
+            saveSettings();
+          }
+
           saveState();
           render();
           updateSyncStatus("done");
@@ -1506,7 +1790,7 @@
             "Content-Type": "application/json",
             "X-Master-Key": settings.masterKey
           },
-          body: JSON.stringify(state)
+          body: JSON.stringify({ ...state, _settings: settings })
         });
 
         if (!res.ok) throw new Error("同步失败");
