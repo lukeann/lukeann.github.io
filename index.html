@@ -323,6 +323,24 @@
 
         .modal-footer { display: flex; justify-content: flex-end; gap: 0.625rem; margin-top: 1.25rem; }
 
+        /* AI 导入弹窗 */
+        .ai-modal-content { width: 40rem; max-width: 95%; }
+        .ai-textarea {
+            width: 100%; min-height: 12rem; padding: 0.75rem; border: 2px solid var(--border-color);
+            border-radius: 0.5rem; font-size: 0.875rem; font-family: var(--font-family);
+            resize: vertical; background: var(--input-bg); color: var(--text-primary);
+        }
+        .ai-textarea:focus { border-color: var(--ikea-blue); }
+        .ai-result { display: none; margin-top: 1rem; background: var(--bg-table-hover); border-radius: 0.5rem; padding: 1rem; }
+        .ai-result.active { display: block; }
+        .ai-result table { min-width: auto; font-size: 0.875rem; }
+        .ai-result td { padding: 0.5rem; border-bottom: 1px solid var(--border-color); }
+        .ai-result td:first-child { font-weight: 700; color: var(--text-secondary); white-space: nowrap; width: 5rem; }
+        .ai-spinner { display: none; text-align: center; padding: 1rem; color: var(--ikea-blue); }
+        .ai-spinner.active { display: block; }
+        .ai-spinner i { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
         /* 移动端适配 */
         @media (max-width: 768px) {
             body { padding: 0.625rem; background: var(--bg-page); }
@@ -388,6 +406,7 @@
         <button class="btn btn-primary" onclick="addRow()"><i class="fas fa-plus"></i> 加行</button>
         <button class="btn" onclick="addColumn()"><i class="fas fa-columns"></i> 加列</button>
         <button class="btn btn-danger" onclick="resetData()"><i class="fas fa-undo"></i> 重置</button>
+        <button class="btn" onclick="openAiModal()" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;"><i class="fas fa-robot"></i> AI导入</button>
         <button class="btn" onclick="openAppearanceModal()"><i class="fas fa-adjust"></i> 外观</button>
         
         <button class="btn btn-sync" onclick="openSyncModal()" id="syncBtn">
@@ -461,6 +480,40 @@
     </div>
 </div>
 
+<!-- AI 导入弹窗 -->
+<div id="aiModal" class="modal">
+    <div class="modal-content ai-modal-content">
+        <h3><i class="fas fa-robot"></i> AI 智能导入</h3>
+        <p style="font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 1rem;">
+            粘贴微信聊天记录，AI 自动提取品牌、价格、款式等信息。<br>
+            使用 DeepSeek API，需自行申请 Key：<a href="https://platform.deepseek.com/api_keys" target="_blank" style="color: var(--ikea-blue);">获取 API Key</a>
+        </p>
+
+        <div class="input-group">
+            <label>DeepSeek API Key</label>
+            <div style="display:flex; gap:0.5rem;">
+                <input type="password" id="dsApiKey" placeholder="sk-..." style="flex:1;">
+                <button class="btn" onclick="saveAiConfig()" style="white-space:nowrap;">保存</button>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>粘贴聊天记录</label>
+            <textarea id="aiInput" class="ai-textarea" placeholder="在微信中复制聊天消息，粘贴到这里...&#10;&#10;例如：&#10;品牌：Lisa家&#10;合作方式：寄拍 180&#10;款式：V领短袖+阔腿裤&#10;截止：6月内"></textarea>
+        </div>
+
+        <div class="ai-spinner" id="aiSpinner"><i class="fas fa-spinner fa-2x"></i><p>AI 正在分析...</p></div>
+
+        <div class="ai-result" id="aiResult"></div>
+
+        <div class="modal-footer">
+            <button class="btn" onclick="closeModal('aiModal')">关闭</button>
+            <button class="btn btn-primary" id="aiParseBtn" onclick="parseWithAI()"><i class="fas fa-magic"></i> 解析</button>
+            <button class="btn btn-primary" id="aiConfirmBtn" onclick="confirmAiImport()" style="display:none;"><i class="fas fa-check"></i> 确认添加</button>
+        </div>
+    </div>
+</div>
+
 <div id="toast" class="toast">已保存</div>
 
 <script>
@@ -503,22 +556,22 @@
     window.openAppearanceModal = () => document.getElementById('appearanceModal').classList.add('active');
 
     // 默认数据
-    const defaultHeaders = ["品牌名称", "合作方式", "价格", "淘宝垫付", "本金已返", "款式/要求", "截止日期", "已收到", "已拍摄", "已发布", "已寄回", "已结款"];
+    const defaultHeaders = ["品牌名称", "合作方式", "价格", "淘宝垫付", "本金已返", "款式/要求", "截止日期", "已收到", "已拍摄", "已发布", "已寄回", "已出掉", "卖出价格", "已结款"];
     const defaultData = [
-        {id: 1, cells: ["INHERWORDS", "置换", "置换", "", false, "长袖T恤", "3月内", false, false, false, false, false]},
-        {id: 2, cells: ["INHERWORDS", "置换", "置换", "", false, "黑色衬衫长袖", "3月内", false, false, false, false, false]},
-        {id: 3, cells: ["药九玫柒 (1997邮政局)", "置换", "置换", "", false, "印花短袖", "待定", true, true, false, "N/A", "N/A"]},
-        {id: 4, cells: ["WhyBerry", "置换", "置换", "", false, "红色外套", "3月内", false, false, false, "N/A", "N/A"]},
-        {id: 5, cells: ["Bill conch", "置换", "置换", "", false, "无袖蓝色裙子", "待定", false, false, false, "N/A", "N/A"]},
-        {id: 6, cells: ["暴走蓝鲸", "寄拍", "120", "", false, "红格子衬衫", "3.25前", false, false, false, false, false]},
-        {id: 7, cells: ["MR MUKOK", "寄拍", "120", "", false, "亚麻衬衫 (出片5天寄回)", "3月内", true, false, false, false, false]},
-        {id: 8, cells: ["mysugarbabe (MSB)", "置换", "置换", "", false, "蕾丝风半裙", "待定", false, false, false, "N/A", "N/A"]},
-        {id: 9, cells: ["RPB Brand", "寄拍", "120", "", false, "裤子+上衣", "3月底前", false, false, false, false, false]},
-        {id: 10, cells: ["living town", "寄拍", "130", "", false, "无袖格子裙", "3月内", false, false, false, false, false]},
-        {id: 11, cells: ["fisherman store", "置换", "置换", "", false, "马甲衬衫", "3月内", false, false, false, false, false]},
-        {id: 12, cells: ["round ship", "寄拍", "120", "", false, "刺绣吊带裙", "3月内", true, true, false, false, false]},
-        {id: 13, cells: ["gtrg", "寄拍", "150", "", false, "黑色polo＋短裤", "3月内", false, false, false, false, false]},
-        {id: 14, cells: ["LRRE", "置换", "置换", "", false, "黑色半裙", "3月内", false, false, false, false, false]}
+        {id: 1, cells: ["INHERWORDS", "置换", "置换", "", false, "长袖T恤", "3月内", false, false, false, false, false, "", false]},
+        {id: 2, cells: ["INHERWORDS", "置换", "置换", "", false, "黑色衬衫长袖", "3月内", false, false, false, false, false, "", false]},
+        {id: 3, cells: ["药九玫柒 (1997邮政局)", "置换", "置换", "", false, "印花短袖", "待定", true, true, false, "N/A", false, "", "N/A"]},
+        {id: 4, cells: ["WhyBerry", "置换", "置换", "", false, "红色外套", "3月内", false, false, false, "N/A", false, "", "N/A"]},
+        {id: 5, cells: ["Bill conch", "置换", "置换", "", false, "无袖蓝色裙子", "待定", false, false, false, "N/A", false, "", "N/A"]},
+        {id: 6, cells: ["暴走蓝鲸", "寄拍", "120", "", false, "红格子衬衫", "3.25前", false, false, false, false, "N/A", "N/A", false]},
+        {id: 7, cells: ["MR MUKOK", "寄拍", "120", "", false, "亚麻衬衫 (出片5天寄回)", "3月内", true, false, false, false, "N/A", "N/A", false]},
+        {id: 8, cells: ["mysugarbabe (MSB)", "置换", "置换", "", false, "蕾丝风半裙", "待定", false, false, false, "N/A", false, "", "N/A"]},
+        {id: 9, cells: ["PRB Brand", "送拍", "40", "", false, "裙子", "6月内", false, false, false, false, "N/A", "N/A", false]},
+        {id: 10, cells: ["living town", "寄拍", "130", "", false, "无袖格子裙", "3月内", false, false, false, false, "N/A", "N/A", false]},
+        {id: 11, cells: ["fisherman store", "置换", "置换", "", false, "马甲衬衫", "3月内", false, false, false, false, false, "", false]},
+        {id: 12, cells: ["round ship", "寄拍", "120", "", false, "刺绣吊带裙", "3月内", true, true, false, false, "N/A", "N/A", false]},
+        {id: 13, cells: ["gtrg", "寄拍", "150", "", false, "黑色polo＋短裤", "3月内", false, false, false, false, "N/A", "N/A", false]},
+        {id: 14, cells: ["LRRE", "置换", "置换", "", false, "黑色半裙", "3月内", false, false, false, false, false, "", false]}
     ];
 
     // 状态
@@ -558,10 +611,63 @@
             });
         }
         
+        // 数据迁移：自动增加“已出掉”和“卖出价格”两列
+        let jhIdx = headers.indexOf("已寄回");
+        if (jhIdx === -1) jhIdx = headers.length - 1;
+        if (!headers.includes("已出掉")) {
+            headers.splice(jhIdx + 1, 0, "已出掉");
+            data.forEach(r => {
+                let typeVal = "";
+                let typeIdx = headers.indexOf("合作方式");
+                if (typeIdx > -1) typeVal = String(r.cells[typeIdx] || "");
+                r.cells.splice(jhIdx + 1, 0, typeVal.includes("置换") ? false : "N/A");
+            });
+            changed = true;
+        }
+        if (!headers.includes("卖出价格")) {
+            let cdIdx = headers.indexOf("已出掉");
+            if (cdIdx === -1) cdIdx = headers.length - 1;
+            headers.splice(cdIdx + 1, 0, "卖出价格");
+            data.forEach(r => {
+                let typeVal = "";
+                let typeIdx = headers.indexOf("合作方式");
+                if (typeIdx > -1) typeVal = String(r.cells[typeIdx] || "");
+                r.cells.splice(cdIdx + 1, 0, typeVal.includes("置换") ? "" : "N/A");
+            });
+            changed = true;
+        }
+
         if (changed) {
             localStorage.setItem('headers', JSON.stringify(headers));
             localStorage.setItem('data', JSON.stringify(data));
         }
+    }
+
+    // 一次性迁移：为老用户添加 PRB Brand 送拍 40 订单
+    if (!localStorage.getItem('migrated_prb_order')) {
+        let hasPrbSongpai = data.some(r => {
+            let brandIdx = headers.indexOf("品牌名称");
+            let typeIdx = headers.indexOf("合作方式");
+            return brandIdx > -1 && String(r.cells[brandIdx] || "").includes("PRB") &&
+                   typeIdx > -1 && String(r.cells[typeIdx] || "").includes("送拍");
+        });
+        if (!hasPrbSongpai) {
+            let newRow = { id: Date.now(), cells: headers.map(h => {
+                if (h === "品牌名称") return "PRB Brand";
+                if (h === "合作方式") return "送拍";
+                if (h === "价格") return "40";
+                if (h === "款式/要求") return "裙子";
+                if (h === "截止日期") return "6月内";
+                if (h === "淘宝垫付") return "—";
+                if (h === "本金已返") return "—";
+                if (h === "已出掉" || h === "卖出价格") return "N/A";
+                if (h.includes("已") || h.includes("完成")) return false;
+                return "";
+            })};
+            data.push(newRow);
+            localStorage.setItem('data', JSON.stringify(data));
+        }
+        localStorage.setItem('migrated_prb_order', 'true');
     }
 
     // 初始执行一次迁移
@@ -630,7 +736,7 @@
                     let display = cell;
                     // 样式增强
                     if (headers[cIdx].includes("方式")) {
-                        if (cell.includes("寄拍")) display = `<span class="tag tag-blue">寄拍</span>`;
+                        if (cell.includes("寄拍") || cell.includes("送拍")) display = `<span class="tag tag-blue">${cell}</span>`;
                         if (cell.includes("置换")) display = `<span class="tag tag-yellow">置换</span>`;
                     }
                     content = `<div class="editable" contenteditable="true" onblur="updateData(${rIdx}, ${cIdx}, this.innerText)">${display}</div>`;
@@ -652,18 +758,31 @@
         const priceIdx = headers.findIndex(h => h.includes("价格") || h.includes("佣金"));
         const paidIdx = headers.findIndex(h => h.includes("结款"));
         const typeIdx = headers.findIndex(h => h.includes("方式"));
+        const soldIdx = headers.findIndex(h => h.includes("出掉"));
+        const sellPriceIdx = headers.findIndex(h => h.includes("卖出"));
 
         data.forEach(row => {
-            // 金额
-            if (priceIdx > -1) {
-                let val = parseFloat(String(row.cells[priceIdx]).replace(/[^\d.]/g, '')) || 0;
-                totalPending += val;
-                if (paidIdx > -1 && row.cells[paidIdx] === true) totalConfirmed += val;
-            }
-            // 计数
+            // 金额：寄拍/送拍用价格列，置换用卖出价格列
             if (typeIdx > -1) {
-                if (String(row.cells[typeIdx]).includes("寄拍")) countPaid++;
-                if (String(row.cells[typeIdx]).includes("置换")) countExchange++;
+                let typeVal = String(row.cells[typeIdx] || "");
+                if (typeVal.includes("置换")) {
+                    // 置换：收入来自卖出价格
+                    if (sellPriceIdx > -1) {
+                        let val = parseFloat(String(row.cells[sellPriceIdx]).replace(/[^\d.]/g, '')) || 0;
+                        totalPending += val;
+                        if (soldIdx > -1 && row.cells[soldIdx] === true) totalConfirmed += val;
+                    }
+                } else {
+                    // 寄拍/送拍：收入来自价格列
+                    if (priceIdx > -1) {
+                        let val = parseFloat(String(row.cells[priceIdx]).replace(/[^\d.]/g, '')) || 0;
+                        totalPending += val;
+                        if (paidIdx > -1 && row.cells[paidIdx] === true) totalConfirmed += val;
+                    }
+                }
+                // 计数
+                if (typeVal.includes("寄拍") || typeVal.includes("送拍")) countPaid++;
+                if (typeVal.includes("置换")) countExchange++;
             }
         });
 
@@ -962,6 +1081,171 @@
         } catch (e) {
             console.error("拉取失败", e);
         }
+    }
+
+    // --- AI 导入逻辑 ---
+
+    let aiConfig = JSON.parse(localStorage.getItem('aiConfig')) || { apiKey: '' };
+    let aiParsedData = null; // 暂存 AI 解析结果
+
+    function loadAiConfig() {
+        document.getElementById('dsApiKey').value = aiConfig.apiKey || '';
+    }
+
+    window.saveAiConfig = () => {
+        aiConfig.apiKey = document.getElementById('dsApiKey').value.trim();
+        localStorage.setItem('aiConfig', JSON.stringify(aiConfig));
+        showToast('API Key 已保存');
+    }
+
+    window.openAiModal = () => {
+        loadAiConfig();
+        document.getElementById('aiInput').value = '';
+        document.getElementById('aiResult').classList.remove('active');
+        document.getElementById('aiParseBtn').style.display = '';
+        document.getElementById('aiConfirmBtn').style.display = 'none';
+        document.getElementById('aiSpinner').classList.remove('active');
+        aiParsedData = null;
+        document.getElementById('aiModal').classList.add('active');
+    }
+
+    window.parseWithAI = async () => {
+        const inputText = document.getElementById('aiInput').value.trim();
+        if (!inputText) { alert('请先粘贴聊天记录'); return; }
+        if (!aiConfig.apiKey) { alert('请先填写 DeepSeek API Key'); return; }
+
+        const parseBtn = document.getElementById('aiParseBtn');
+        const spinner = document.getElementById('aiSpinner');
+        const resultDiv = document.getElementById('aiResult');
+        const confirmBtn = document.getElementById('aiConfirmBtn');
+
+        parseBtn.disabled = true;
+        spinner.classList.add('active');
+        resultDiv.classList.remove('active');
+        confirmBtn.style.display = 'none';
+
+        try {
+            const systemPrompt = `你是一个订单信息提取助手。从微信/小红书聊天记录中提取博主合作订单信息。
+
+当前表格包含这些列：${JSON.stringify(headers)}
+
+只提取以下字段（其他列不要）：
+- 品牌名称：品牌/店铺名称
+- 合作方式：寄拍（有稿费）、送拍（送产品+稿费）、置换（以产品换推广，无稿费）
+- 价格：稿费金额，只填数字。置换则填"置换"
+- 淘宝垫付：是否需要先在淘宝下单垫付本金？需要填"是"，不需要填"—"
+- 款式/要求：要拍摄的具体产品描述（服装款式、颜色、件数等），越详细越好
+- 截止日期：交稿/发布的截止时间
+
+规则：
+1. 结合上下文理解，注意对话中可能有多轮协商后的最终结果
+2. 如果信息不明确或未提及，填"—"或留空
+3. 只返回纯JSON，不要markdown代码块，不要解释：
+{"品牌名称": "...", "合作方式": "...", "价格": "...", "淘宝垫付": "...", "款式/要求": "...", "截止日期": "..."}`;
+
+            const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${aiConfig.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'deepseek-chat',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: inputText }
+                    ],
+                    temperature: 0.1,
+                    max_tokens: 1000
+                })
+            });
+
+            if (!res.ok) {
+                const err = await res.text();
+                throw new Error(`API 请求失败 (${res.status}): ${err}`);
+            }
+
+            const json = await res.json();
+            const content = json.choices[0].message.content;
+
+            // 尝试解析 JSON（可能被包裹在 markdown 代码块中）
+            let parsed;
+            try {
+                parsed = JSON.parse(content);
+            } catch {
+                const match = content.match(/\{[\s\S]*\}/);
+                if (match) parsed = JSON.parse(match[0]);
+                else throw new Error('无法解析 AI 返回的 JSON');
+            }
+
+            aiParsedData = parsed;
+
+            // 渲染预览表格
+            let html = '<table>';
+            for (const [key, val] of Object.entries(parsed)) {
+                html += `<tr><td>${key}</td><td>${val || '—'}</td></tr>`;
+            }
+            html += '</table>';
+            resultDiv.innerHTML = html;
+            resultDiv.classList.add('active');
+            confirmBtn.style.display = '';
+
+        } catch (e) {
+            alert('解析失败：' + e.message);
+            console.error(e);
+        } finally {
+            parseBtn.disabled = false;
+            spinner.classList.remove('active');
+        }
+    }
+
+    window.confirmAiImport = () => {
+        if (!aiParsedData) return;
+
+        // 构建新行
+        const newRow = {
+            id: Date.now(),
+            cells: headers.map(h => {
+                if (aiParsedData[h] !== undefined && aiParsedData[h] !== '') {
+                    let val = aiParsedData[h];
+                    // 自动类型转换
+                    if (h === "淘宝垫付") {
+                        return val === "是" ? "是" : "—";
+                    }
+                    if (h === "合作方式") {
+                        // 确保是有效类型
+                        if (val.includes("寄拍") || val.includes("送拍") || val.includes("置换")) return val;
+                    }
+                    return val;
+                }
+                // 默认值
+                if (h === "淘宝垫付" || h === "本金已返") return "—";
+                if (h === "已出掉" || h === "卖出价格") return "N/A";
+                if (h.includes("已") || h.includes("完成")) return false;
+                return "";
+            })
+        };
+
+        // 根据合作方式调整默认值
+        let typeVal = String(newRow.cells[headers.indexOf("合作方式")] || "");
+        if (typeVal.includes("置换")) {
+            let soldIdx = headers.indexOf("已出掉");
+            let sellPriceIdx = headers.indexOf("卖出价格");
+            let jhIdx = headers.indexOf("已寄回");
+            let jkIdx = headers.indexOf("已结款");
+            if (soldIdx > -1) newRow.cells[soldIdx] = false;
+            if (sellPriceIdx > -1) newRow.cells[sellPriceIdx] = "";
+            if (jhIdx > -1) newRow.cells[jhIdx] = "N/A";
+            if (jkIdx > -1) newRow.cells[jkIdx] = "N/A";
+        }
+
+        data.push(newRow);
+        saveLocal();
+        renderTable();
+        calculateTotals();
+        closeModal('aiModal');
+        showToast('已添加！');
+        triggerAutoSave();
     }
 
     // 启动
