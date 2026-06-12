@@ -263,6 +263,13 @@
       border-color: var(--primary);
     }
 
+    .summary-row {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
     .mini-dashboard {
       display: grid;
       grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -525,6 +532,10 @@
         display: grid;
       }
 
+      .summary-row {
+        grid-template-columns: 1fr;
+      }
+
       .mini-dashboard {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -629,6 +640,21 @@
     </header>
 
     <nav id="monthTabs" class="month-row"></nav>
+
+    <section class="summary-row">
+      <div class="mini-stat">
+        <span>总收入</span>
+        <strong id="totalIncome">¥0</strong>
+      </div>
+      <div class="mini-stat">
+        <span>寄拍/送拍 已到账/预计</span>
+        <strong id="paidSummary">¥0 / ¥0</strong>
+      </div>
+      <div class="mini-stat">
+        <span>置换卖出</span>
+        <strong id="exchangeSold">¥0</strong>
+      </div>
+    </section>
 
     <section class="mini-dashboard">
       <div class="mini-stat">
@@ -872,6 +898,9 @@
       typeFilter: document.getElementById("typeFilter"),
       tableHead: document.getElementById("tableHead"),
       tableBody: document.getElementById("tableBody"),
+      totalIncome: document.getElementById("totalIncome"),
+      paidSummary: document.getElementById("paidSummary"),
+      exchangeSold: document.getElementById("exchangeSold"),
       totalDeals: document.getElementById("totalDeals"),
       pendingPublish: document.getElementById("pendingPublish"),
       pendingReturn: document.getElementById("pendingReturn"),
@@ -1407,6 +1436,13 @@
 
     function renderStats() {
       const rows = state.months[state.activeMonth] || [];
+      const paidRows = rows.filter((r) => { const t = String(r.cooperationType || ""); return t.includes("寄拍") || t.includes("送拍"); });
+      const exchangeRows = rows.filter((r) => String(r.cooperationType || "").includes("置换"));
+
+      const paidIncome = paidRows.reduce((sum, r) => sum + toNumber(r.price), 0);
+      const paidSettled = paidRows.reduce((sum, r) => sum + (r.settled === true ? toNumber(r.price) : 0), 0);
+      const soldIncome = exchangeRows.reduce((sum, r) => sum + (r.sold === true ? toNumber(r.soldPrice) : 0), 0);
+      const totalIncome = paidIncome + soldIncome;
 
       const totalDeals = rows.length;
       const pendingPublish = rows.filter((r) => r.published !== true).length;
@@ -1415,6 +1451,9 @@
       const exchangeUnsold = rows.filter((r) => r.cooperationType === "置换" && r.sold !== true).length;
       const completedCount = rows.filter(isCompletedRow).length;
 
+      els.totalIncome.textContent = formatMoney(totalIncome);
+      els.paidSummary.textContent = formatMoney(paidSettled) + " / " + formatMoney(paidIncome);
+      els.exchangeSold.textContent = formatMoney(soldIncome);
       els.totalDeals.textContent = totalDeals;
       els.pendingPublish.textContent = pendingPublish;
       els.pendingReturn.textContent = pendingReturn;
