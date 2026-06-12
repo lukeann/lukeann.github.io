@@ -614,19 +614,19 @@
 
     <section class="stats">
       <div class="stat">
-        <span>合作报价合计</span>
+        <span>寄拍/送拍收入</span>
         <strong id="totalPending">¥0</strong>
       </div>
       <div class="stat">
-        <span>卖出收入合计</span>
+        <span>置换已卖出</span>
         <strong id="totalConfirmed">¥0</strong>
       </div>
       <div class="stat">
-        <span>预计差额</span>
+        <span>寄拍/送拍 已结款</span>
         <strong id="totalWaiting">¥0</strong>
       </div>
       <div class="stat">
-        <span>已结款 / 总数</span>
+        <span>寄拍送拍 / 置换</span>
         <strong id="giftCount">0 / 0</strong>
       </div>
     </section>
@@ -1079,6 +1079,15 @@
       if (!normalizedMonths["3月"]) normalizedMonths["3月"] = [];
       if (!normalizedMonths["6月"]) normalizedMonths["6月"] = [];
 
+      // 一次性迁移：3月有数据但6月为空时，把3月数据移到6月
+      if (!localStorage.getItem("migrated_march_to_june") &&
+          normalizedMonths["3月"].length > 0 &&
+          normalizedMonths["6月"].length === 0) {
+        normalizedMonths["6月"] = [...normalizedMonths["3月"]];
+        normalizedMonths["3月"] = [];
+        localStorage.setItem("migrated_march_to_june", "true");
+      }
+
       const columns = source.columns && source.columns.length ? source.columns : defaultColumns;
       if (!columns.some(c => c.key === "note")) {
         columns.push({ key: "note", label: "备注", type: "text" });
@@ -1300,14 +1309,20 @@
     function renderStats() {
       const rows = state.months[state.activeMonth] || [];
 
-      const totalPrice = rows.reduce((sum, row) => sum + toNumber(row.price), 0);
-      const totalSold = rows.reduce((sum, row) => sum + toNumber(row.soldPrice), 0);
-      const settledCount = rows.filter((row) => row.settled).length;
+      const paidRows = rows.filter((r) => {
+        const t = String(r.cooperationType || "");
+        return t.includes("寄拍") || t.includes("送拍");
+      });
+      const exchangeRows = rows.filter((r) => String(r.cooperationType || "").includes("置换"));
 
-      els.totalPending.textContent = formatMoney(totalPrice);
-      els.totalConfirmed.textContent = formatMoney(totalSold);
-      els.totalWaiting.textContent = formatMoney(Math.max(totalPrice - totalSold, 0));
-      els.giftCount.textContent = `${settledCount} / ${rows.length}`;
+      const paidIncome = paidRows.reduce((sum, r) => sum + toNumber(r.price), 0);
+      const soldIncome = exchangeRows.reduce((sum, r) => sum + (r.sold ? toNumber(r.soldPrice) : 0), 0);
+      const settledCount = paidRows.filter((r) => r.settled === true).length;
+
+      els.totalPending.textContent = formatMoney(paidIncome);
+      els.totalConfirmed.textContent = formatMoney(soldIncome);
+      els.totalWaiting.textContent = `${settledCount} / ${paidRows.length}`;
+      els.giftCount.textContent = `${paidRows.length} / ${exchangeRows.length}`;
     }
 
     function addRow(data = {}) {
