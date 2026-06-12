@@ -377,6 +377,19 @@
       color: var(--text);
     }
 
+    .check-cell {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+    }
+
+    .check-cell input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+    }
+
     .drawer {
       position: fixed;
       inset: auto 18px 18px auto;
@@ -533,19 +546,19 @@
 
     <section class="stats">
       <div class="stat">
-        <span>预计总收入</span>
+        <span>合作报价合计</span>
         <strong id="totalPending">¥0</strong>
       </div>
       <div class="stat">
-        <span>已到账</span>
+        <span>卖出收入合计</span>
         <strong id="totalConfirmed">¥0</strong>
       </div>
       <div class="stat">
-        <span>待入账</span>
+        <span>预计差额</span>
         <strong id="totalWaiting">¥0</strong>
       </div>
       <div class="stat">
-        <span>寄拍 / 置换</span>
+        <span>已结款 / 总数</span>
         <strong id="giftCount">0 / 0</strong>
       </div>
     </section>
@@ -555,6 +568,7 @@
         <h2 id="currentMonthTitle">3月数据</h2>
         <div class="actions">
           <button id="addRowBtn" class="btn">加行</button>
+          <button id="addColumnBtn" class="btn secondary">加列</button>
           <button id="aiBtn" class="btn secondary">AI解析</button>
           <button id="addMonthBtn" class="btn secondary">加月份</button>
           <button id="settingsBtn" class="btn secondary">设置</button>
@@ -563,19 +577,7 @@
 
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr>
-              <th>日期</th>
-              <th>博主 / 客户</th>
-              <th>项目 / 内容</th>
-              <th>类型</th>
-              <th>金额</th>
-              <th>状态</th>
-              <th>微信 / 电话</th>
-              <th>备注</th>
-              <th>操作</th>
-            </tr>
-          </thead>
+          <thead id="tableHead"></thead>
           <tbody id="tableBody"></tbody>
         </table>
       </div>
@@ -645,8 +647,26 @@
     const STORAGE_KEY = "pr_tracker_v2";
     const SETTINGS_KEY = "pr_tracker_settings_v2";
 
+    const defaultColumns = [
+      { key: "brandName", label: "品牌名称", type: "text" },
+      { key: "cooperationType", label: "合作方式", type: "select", options: ["寄拍", "置换", "送拍", "报备", "现金", "其他"] },
+      { key: "price", label: "价格", type: "money" },
+      { key: "taobaoAdvance", label: "淘宝垫付", type: "money" },
+      { key: "principalReturned", label: "本金已返", type: "check" },
+      { key: "styleRequirement", label: "款式/要求", type: "text" },
+      { key: "deadline", label: "截止日期", type: "text" },
+      { key: "received", label: "已收到", type: "check" },
+      { key: "shot", label: "已拍摄", type: "check" },
+      { key: "published", label: "已发布", type: "check" },
+      { key: "returned", label: "已寄回", type: "check" },
+      { key: "sold", label: "已出掉", type: "check" },
+      { key: "soldPrice", label: "卖出价格", type: "money" },
+      { key: "settled", label: "已结款", type: "check" }
+    ];
+
     const defaultState = {
       activeMonth: "3月",
+      columns: defaultColumns,
       months: {
         "3月": [],
         "6月": []
@@ -666,12 +686,14 @@
       syncStatus: document.getElementById("syncStatus"),
       monthTabs: document.getElementById("monthTabs"),
       currentMonthTitle: document.getElementById("currentMonthTitle"),
+      tableHead: document.getElementById("tableHead"),
       tableBody: document.getElementById("tableBody"),
       totalPending: document.getElementById("totalPending"),
       totalConfirmed: document.getElementById("totalConfirmed"),
       totalWaiting: document.getElementById("totalWaiting"),
       giftCount: document.getElementById("giftCount"),
       addRowBtn: document.getElementById("addRowBtn"),
+      addColumnBtn: document.getElementById("addColumnBtn"),
       aiBtn: document.getElementById("aiBtn"),
       addMonthBtn: document.getElementById("addMonthBtn"),
       settingsBtn: document.getElementById("settingsBtn"),
@@ -710,6 +732,8 @@
         addRow();
         saveAndRender();
       });
+
+      els.addColumnBtn.addEventListener("click", addColumn);
 
       els.aiBtn.addEventListener("click", () => els.aiDrawer.classList.remove("hidden"));
       els.closeAiBtn.addEventListener("click", () => els.aiDrawer.classList.add("hidden"));
@@ -769,7 +793,8 @@
         const control = event.target.closest("[data-row-id][data-field]");
         if (!control) return;
 
-        updateRow(control.dataset.rowId, control.dataset.field, control.value);
+        const value = control.type === "checkbox" ? control.checked : control.value;
+        updateRow(control.dataset.rowId, control.dataset.field, value);
         saveAndRender();
       });
 
@@ -807,6 +832,7 @@
         const parsed = JSON.parse(raw);
         return {
           activeMonth: parsed.activeMonth || "3月",
+          columns: parsed.columns && parsed.columns.length ? parsed.columns : defaultColumns,
           months: parsed.months || structuredClone(defaultState.months)
         };
       } catch {
@@ -882,14 +908,23 @@
 
     function renderTable() {
       const rows = state.months[state.activeMonth] || [];
+      const columns = state.columns || defaultColumns;
       els.currentMonthTitle.textContent = `${state.activeMonth}数据`;
+
+      els.tableHead.innerHTML = `
+        <tr>
+          ${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}
+          <th>操作</th>
+        </tr>
+      `;
+
       els.tableBody.innerHTML = "";
 
       if (!rows.length) {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td data-label="提示" colspan="9" style="color: var(--muted); padding: 24px;">
-            当前月份暂无数据，可以点击“加行”或“AI解析”添加。
+          <td data-label="提示" colspan="${columns.length + 1}" style="color: var(--muted); padding: 24px;">
+            当前月份暂无数据，可以点击"加行"或"AI解析"添加。
           </td>
         `;
         els.tableBody.appendChild(tr);
@@ -898,37 +933,52 @@
 
       rows.forEach((row) => {
         const tr = document.createElement("tr");
+
+        const cells = columns.map((column) => {
+          const value = row[column.key] ?? "";
+
+          if (column.type === "select") {
+            return `
+              <td data-label="${escapeHtml(column.label)}">
+                <select class="type-select" data-row-id="${row.id}" data-field="${column.key}">
+                  ${(column.options || []).map((item) => `
+                    <option value="${escapeHtml(item)}" ${value === item ? "selected" : ""}>${escapeHtml(item)}</option>
+                  `).join("")}
+                </select>
+              </td>
+            `;
+          }
+
+          if (column.type === "check") {
+            return `
+              <td data-label="${escapeHtml(column.label)}">
+                <label class="check-cell">
+                  <input type="checkbox" data-row-id="${row.id}" data-field="${column.key}" ${value ? "checked" : ""} />
+                  <span>${value ? "是" : "否"}</span>
+                </label>
+              </td>
+            `;
+          }
+
+          return `
+            <td
+              data-label="${escapeHtml(column.label)}"
+              contenteditable="true"
+              data-row-id="${row.id}"
+              data-field="${column.key}"
+            >${escapeHtml(value)}</td>
+          `;
+        }).join("");
+
         tr.innerHTML = `
-          <td data-label="日期" contenteditable="true" data-row-id="${row.id}" data-field="date">${escapeHtml(row.date)}</td>
-          <td data-label="博主 / 客户" contenteditable="true" data-row-id="${row.id}" data-field="name">${escapeHtml(row.name)}</td>
-          <td data-label="项目 / 内容" contenteditable="true" data-row-id="${row.id}" data-field="project">${escapeHtml(row.project)}</td>
-          <td data-label="类型">
-            <select class="type-select" data-row-id="${row.id}" data-field="type">
-              ${option("现金", row.type)}
-              ${option("寄拍", row.type)}
-              ${option("置换", row.type)}
-              ${option("其他", row.type)}
-            </select>
-          </td>
-          <td data-label="金额" contenteditable="true" data-row-id="${row.id}" data-field="amount">${escapeHtml(String(row.amount || ""))}</td>
-          <td data-label="状态">
-            <select class="status-select" data-row-id="${row.id}" data-field="status">
-              ${option("待沟通", row.status)}
-              ${option("进行中", row.status)}
-              ${option("待入账", row.status)}
-              ${option("已到账", row.status)}
-              ${option("已寄出", row.status)}
-              ${option("已完成", row.status)}
-            </select>
-          </td>
-          <td data-label="微信 / 电话" contenteditable="true" data-row-id="${row.id}" data-field="contact">${escapeHtml(row.contact)}</td>
-          <td data-label="备注" contenteditable="true" data-row-id="${row.id}" data-field="note">${escapeHtml(row.note)}</td>
+          ${cells}
           <td data-label="操作">
             <div class="row-actions">
               <button class="mini" data-delete-id="${row.id}">删除</button>
             </div>
           </td>
         `;
+
         els.tableBody.appendChild(tr);
       });
     }
@@ -936,34 +986,58 @@
     function renderStats() {
       const rows = state.months[state.activeMonth] || [];
 
-      const moneyRows = rows.filter((row) => row.type === "现金");
-      const pending = moneyRows.reduce((sum, row) => sum + toNumber(row.amount), 0);
-      const confirmed = moneyRows
-        .filter((row) => row.status === "已到账" || row.status === "已完成")
-        .reduce((sum, row) => sum + toNumber(row.amount), 0);
-      const waiting = Math.max(pending - confirmed, 0);
-      const gift = rows.filter((row) => row.type === "寄拍").length;
-      const exchange = rows.filter((row) => row.type === "置换").length;
+      const totalPrice = rows.reduce((sum, row) => sum + toNumber(row.price), 0);
+      const totalSold = rows.reduce((sum, row) => sum + toNumber(row.soldPrice), 0);
+      const settledCount = rows.filter((row) => row.settled).length;
 
-      els.totalPending.textContent = formatMoney(pending);
-      els.totalConfirmed.textContent = formatMoney(confirmed);
-      els.totalWaiting.textContent = formatMoney(waiting);
-      els.giftCount.textContent = `${gift} / ${exchange}`;
+      els.totalPending.textContent = formatMoney(totalPrice);
+      els.totalConfirmed.textContent = formatMoney(totalSold);
+      els.totalWaiting.textContent = formatMoney(Math.max(totalPrice - totalSold, 0));
+      els.giftCount.textContent = `${settledCount} / ${rows.length}`;
     }
 
     function addRow(data = {}) {
       const monthRows = state.months[state.activeMonth];
-      monthRows.push({
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
-        date: data.date || "",
-        name: data.name || "",
-        project: data.project || "",
-        type: data.type || "现金",
-        amount: data.amount || "",
-        status: data.status || "待沟通",
-        contact: data.contact || "",
-        note: data.note || ""
+      const columns = state.columns || defaultColumns;
+
+      const row = {
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random())
+      };
+
+      columns.forEach((column) => {
+        if (column.type === "check") {
+          row[column.key] = data[column.key] || false;
+        } else {
+          row[column.key] = data[column.key] || "";
+        }
       });
+
+      monthRows.push(row);
+    }
+
+    function addColumn() {
+      const label = prompt("请输入新列名称，例如：快递单号、联系人、备注");
+      if (!label) return;
+
+      const cleanLabel = label.trim();
+      if (!cleanLabel) return;
+
+      const key = `custom_${Date.now()}`;
+
+      state.columns.push({
+        key,
+        label: cleanLabel,
+        type: "text",
+        custom: true
+      });
+
+      Object.keys(state.months).forEach((month) => {
+        state.months[month].forEach((row) => {
+          row[key] = "";
+        });
+      });
+
+      saveAndRender();
     }
 
     function addMonth() {
@@ -1004,37 +1078,32 @@
       if (!clean) return null;
 
       const amountMatch = clean.match(/(?:¥|￥)?\s*(\d+(?:\.\d+)?)\s*(?:元|块|rmb|RMB)?/);
-      const phoneMatch = clean.match(/1[3-9]\d{9}/);
-      const wxMatch = clean.match(/(?:微信|wx|WX|vx|VX)[:：\s]*([a-zA-Z0-9_-]{5,})/);
-      const dateMatch = clean.match(/(\d{1,2}[月./-]\d{1,2}[日号]?|\d{1,2}[日号])/);
+      const dateMatch = clean.match(/(\d{1,2}[月./-]\d{1,2}[日号]?|\d{1,2}[日号]|\d+月内|\d+月底前)/);
 
-      let type = "现金";
+      let type = "寄拍";
       if (/置换|互换/.test(clean)) type = "置换";
-      if (/寄拍|样品|寄样|邮寄/.test(clean)) type = "寄拍";
-
-      let status = "待沟通";
-      if (/已到账|已收款|结清|已结|已付|已付款/.test(clean)) status = "已到账";
-      else if (/待入账|未结|未付|尾款|待付款|待结/.test(clean)) status = "待入账";
-      else if (/已寄出|已发货|快递|单号/.test(clean)) status = "已寄出";
-      else if (/完成|已发笔记|已发布|发出去了/.test(clean)) status = "已完成";
-      else if (/沟通中|确认中|进行中|排期/.test(clean)) status = "进行中";
+      if (/送拍/.test(clean)) type = "送拍";
+      if (/报备/.test(clean)) type = "报备";
 
       const firstLine = block.split("\n").map((line) => line.trim()).filter(Boolean)[0] || "";
       const name = guessName(firstLine);
-      const contact = wxMatch ? wxMatch[1] : phoneMatch ? phoneMatch[0] : "";
-      const amount = type === "现金" && amountMatch ? amountMatch[1] : "";
-      const project = guessProject(clean);
 
       return {
         id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
-        date: dateMatch ? dateMatch[1] : "",
-        name,
-        project,
-        type,
-        amount,
-        status,
-        contact,
-        note: clean
+        brandName: name,
+        cooperationType: type,
+        price: amountMatch ? amountMatch[1] : "",
+        taobaoAdvance: guessTaobaoAdvance(clean),
+        principalReturned: /本金已返|已返本金|返本金|已返/.test(clean),
+        styleRequirement: guessStyleRequirement(clean),
+        deadline: dateMatch ? dateMatch[0] : "",
+        received: /已收到|收到货|收到了|已签收/.test(clean),
+        shot: /已拍摄|拍完|已拍|拍好了/.test(clean),
+        published: /已发布|已发笔记|已发|发布了/.test(clean),
+        returned: /已寄回|寄回了|已退回|退回/.test(clean),
+        sold: /已出掉|卖掉|已卖|出掉了/.test(clean),
+        soldPrice: guessSoldPrice(clean),
+        settled: /已结款|已结清|结清|已付款|已到账/.test(clean)
       };
     }
 
@@ -1046,13 +1115,19 @@
         .filter(Boolean)[0] || "";
     }
 
-    function guessProject(text) {
-      if (/图文/.test(text)) return "小红书图文";
-      if (/视频/.test(text)) return "小红书视频";
-      if (/探店/.test(text)) return "探店合作";
-      if (/直播/.test(text)) return "直播合作";
-      if (/笔记/.test(text)) return "小红书笔记";
-      return "";
+    function guessTaobaoAdvance(text) {
+      const match = text.match(/(?:淘宝垫付|垫付|本金)[:：\s]*(?:¥|￥)?\s*(\d+(?:\.\d+)?)/);
+      return match ? match[1] : "";
+    }
+
+    function guessSoldPrice(text) {
+      const match = text.match(/(?:卖出|出掉|卖了|二手)[:：\s]*(?:¥|￥)?\s*(\d+(?:\.\d+)?)/);
+      return match ? match[1] : "";
+    }
+
+    function guessStyleRequirement(text) {
+      const match = text.match(/(?:款式|要求|颜色|尺码)[:：\s]*([^，。,；;]+)/);
+      return match ? match[1].trim() : "";
     }
 
     function scheduleSync() {
