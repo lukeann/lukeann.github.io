@@ -1149,9 +1149,12 @@
         cloudLoaded = true; // 本地有数据，允许同步
       }
       try { render(); } catch(e) { console.error(e); }
-      // 如果本地为空，从 GitHub 数据文件加载
-      if (!localStorage.getItem(STORAGE_KEY) && !localStorage.getItem(OLD_STORAGE_KEY)) {
-        loadFromGitHub();
+      // 如果本地没有数据，从 GitHub 拉取
+      const totalRows = Object.values(state.months).reduce((s, arr) => s + (arr || []).length, 0);
+      if (totalRows === 0) {
+        loadFromGitHub().then((loaded) => {
+          if (!loaded) loadFromCloud();
+        });
       } else {
         loadFromCloud();
       }
