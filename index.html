@@ -883,6 +883,7 @@
     let settings = loadSettings();
     let syncTimer = null;
     let isSyncing = false;
+    let cloudLoaded = false; // 防止空数据覆盖云端
     let lastAiDebugInfo = null;
     let pendingAiRows = [];
     let typeFilterValue = "all";
@@ -1144,6 +1145,9 @@
     function showApp() {
       els.login.classList.add("hidden");
       els.app.classList.remove("hidden");
+      if (localStorage.getItem(STORAGE_KEY) || localStorage.getItem(OLD_STORAGE_KEY)) {
+        cloudLoaded = true; // 本地有数据，允许同步
+      }
       try { render(); } catch(e) { console.error(e); }
       // 如果本地为空，从 GitHub 数据文件加载
       if (!localStorage.getItem(STORAGE_KEY) && !localStorage.getItem(OLD_STORAGE_KEY)) {
@@ -1958,6 +1962,7 @@
             saveSettings();
           }
 
+          cloudLoaded = true;
           saveState();
           render();
           updateSyncStatus("done");
@@ -2012,6 +2017,7 @@
             syncToCloud(true);
           }
 
+          cloudLoaded = true;
           saveState();
           render();
           updateSyncStatus("done");
@@ -2024,6 +2030,11 @@
 
     async function syncToCloud(force) {
       if (isSyncing) return;
+      // 防止空数据覆盖云端：云端还没拉过且本地没有已保存的数据时禁止上传
+      if (!cloudLoaded && !localStorage.getItem(STORAGE_KEY) && !localStorage.getItem(OLD_STORAGE_KEY)) {
+        console.log("sync blocked: cloud not loaded yet, local data is empty");
+        return;
+      }
       if (!settings.masterKey || !settings.binId) {
         updateSyncStatus("local");
         return;
