@@ -1999,6 +1999,16 @@
         const data = await res.json();
 
         if (data.record && data.record.months) {
+          // 防止云端空数据覆盖本地数据
+          const cloudTotal = Object.values(data.record.months || {}).reduce((s, arr) => s + (arr || []).length, 0);
+          const localTotal = Object.values(state.months || {}).reduce((s, arr) => s + (arr || []).length, 0);
+          if (cloudTotal === 0 && localTotal > 0) {
+            updateSyncStatus("done");
+            // 把本地数据推回云端修复
+            syncToCloud(true);
+            return;
+          }
+
           state = normalizeState(data.record);
 
           // 从云端恢复设置（优先保留本地非空值）
