@@ -1112,7 +1112,6 @@
 
         updateRow(cell.dataset.rowId, cell.dataset.field, cell.textContent.trim());
         saveAndRender(false);
-        renderStats();
       });
 
       document.addEventListener("change", (event) => {
@@ -1311,7 +1310,7 @@
       saveState();
       saveSettings();
 
-      if (shouldRender) render();
+      if (shouldRender) render(); else renderStats();
 
       scheduleSync();
     }
