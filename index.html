@@ -1457,8 +1457,8 @@
 
     function renderStats() {
       const rows = state.months[state.activeMonth] || [];
-      const paidRows = rows.filter((r) => { const t = String(r.cooperationType || ""); return t.includes("寄拍") || t.includes("送拍"); });
-      const exchangeRows = rows.filter((r) => String(r.cooperationType || "").includes("置换"));
+      const paidRows = rows.filter((r) => { const t = String(r.cooperationType || "").trim(); return t.includes("寄拍") || t.includes("送拍"); });
+      const exchangeRows = rows.filter((r) => String(r.cooperationType || "").trim().includes("置换"));
 
       const paidIncome = paidRows.reduce((sum, r) => sum + toNumber(r.price), 0);
       const paidSettled = paidRows.reduce((sum, r) => sum + (r.settled === true ? toNumber(r.price) : 0), 0);
