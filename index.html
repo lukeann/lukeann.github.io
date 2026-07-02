@@ -1192,7 +1192,11 @@
       const normalizedMonths = {};
 
       Object.keys(months).forEach((month) => {
-        normalizedMonths[month] = (months[month] || []).map((row) => normalizeRow(row));
+        normalizedMonths[month] = (months[month] || []).map((row) => {
+          const normalized = normalizeRow(row);
+          applyTypeRulesToRow(normalized);
+          return normalized;
+        });
       });
 
       if (!normalizedMonths["3月"]) normalizedMonths["3月"] = [];
