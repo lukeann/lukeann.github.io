@@ -862,6 +862,16 @@
     function applyTypeRulesToRow(row) {
       const config = fieldApplicabilityByType[row.cooperationType];
       if (!config) return;
+
+      // 重新激活不再隐藏的字段（从 N/A 恢复为 false）
+      const allCheckFields = ["principalReturned", "returned", "settled", "sold"];
+      allCheckFields.forEach((fieldKey) => {
+        if (!config.hiddenFields.includes(fieldKey) && row[fieldKey] === "N/A") {
+          row[fieldKey] = false;
+        }
+      });
+
+      // 隐藏不适用的字段
       config.hiddenFields.forEach((fieldKey) => {
         const currentValue = row[fieldKey];
         if (currentValue === true) return;
