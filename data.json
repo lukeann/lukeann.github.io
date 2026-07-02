@@ -449,5 +449,17 @@
         "note": "寄拍一条视频180，商家包运费；不授权；无其他平台；订单编号5120656128492034915，支付宝18485667303，姓龙；注意事项：衣服需熨烫平整，吊牌剪掉可退；下午三点前拍当天返款，三点后次日，财务周日不结款"
       }
     ]
+  },
+  "_settings": {
+    "masterKey": "",
+    "binId": "",
+    "aiApiUrl": "https://api.deepseek.com/v1/chat/completions",
+    "aiApiKey": "",
+    "aiModel": "deepseek-chat",
+    "ghToken": "",
+    "ghRepo": "lukeann/lukeann.github.io",
+    "theme": "auto",
+    "fontSize": 16,
+    "pendingSync": false
   }
 }
