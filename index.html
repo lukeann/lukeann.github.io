@@ -1955,13 +1955,15 @@
 
           if (data._settings) {
             const cs = data._settings;
-            settings.masterKey = cs.masterKey || "";
-            settings.binId = cs.binId || "";
-            settings.aiApiUrl = cs.aiApiUrl || "";
-            settings.aiApiKey = cs.aiApiKey || "";
-            settings.aiModel = cs.aiModel || "";
-            settings.theme = cs.theme || "auto";
-            settings.fontSize = cs.fontSize || 16;
+            settings.masterKey = cs.masterKey || settings.masterKey || "";
+            settings.binId = cs.binId || settings.binId || "";
+            settings.aiApiUrl = cs.aiApiUrl || settings.aiApiUrl || "";
+            settings.aiApiKey = cs.aiApiKey || settings.aiApiKey || "";
+            settings.aiModel = cs.aiModel || settings.aiModel || "";
+            settings.theme = cs.theme || settings.theme || "auto";
+            settings.fontSize = cs.fontSize || settings.fontSize || 16;
+            settings.ghToken = cs.ghToken || settings.ghToken || "";
+            settings.ghRepo = cs.ghRepo || settings.ghRepo || "lukeann/lukeann.github.io";
             saveSettings();
           }
 
@@ -1970,6 +1972,11 @@
           render();
           updateSyncStatus("done");
           toast("已从 GitHub 加载数据");
+
+          // 再从云端拉取最新设置（数据已有保护，不会被空数据覆盖）
+          if (settings.masterKey && settings.binId) {
+            loadFromCloud();
+          }
         } else {
           loadFromCloud();
         }
