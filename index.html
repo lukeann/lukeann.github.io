@@ -1457,7 +1457,7 @@
 
     function renderStats() {
       const rows = state.months[state.activeMonth] || [];
-      const paidRows = rows.filter((r) => { const t = String(r.cooperationType || "").trim(); return t.includes("寄拍") || t.includes("送拍") || t.includes("报备") || t.includes("现金"); });
+      const paidRows = rows.filter((r) => { const t = String(r.cooperationType || "").trim(); return !t || t.includes("寄拍") || t.includes("送拍") || t.includes("报备") || t.includes("现金"); });
       const exchangeRows = rows.filter((r) => String(r.cooperationType || "").trim().includes("置换"));
 
       // 调试：打印每行合作方式和价格
