@@ -1457,8 +1457,23 @@
 
     function renderStats() {
       const rows = state.months[state.activeMonth] || [];
-      const paidRows = rows.filter((r) => { const t = String(r.cooperationType || "").trim(); return t.includes("寄拍") || t.includes("送拍"); });
+      const paidRows = rows.filter((r) => { const t = String(r.cooperationType || "").trim(); return t.includes("寄拍") || t.includes("送拍") || t.includes("报备") || t.includes("现金"); });
       const exchangeRows = rows.filter((r) => String(r.cooperationType || "").trim().includes("置换"));
+
+      // 调试：打印每行合作方式和价格
+      console.group("Stats " + state.activeMonth);
+      let dbgPaid = 0, dbgEx = 0;
+      rows.forEach((r, i) => {
+        const t = String(r.cooperationType || "").trim();
+        const p = toNumber(r.price);
+        const isP = paidRows.includes(r);
+        const isE = exchangeRows.includes(r);
+        if (isP) dbgPaid += p;
+        if (isE && r.sold) dbgEx += toNumber(r.soldPrice);
+        console.log((i+1) + ".", r.brandName, "| 类型:", t, "| 价格:", p, "| 计入寄拍送拍:", isP, "| 计入置换:", isE);
+      });
+      console.log("寄拍/送拍/报备/现金 预计:", dbgPaid, "| 置换已卖出:", dbgEx);
+      console.groupEnd();
 
       const paidIncome = paidRows.reduce((sum, r) => sum + toNumber(r.price), 0);
       const paidSettled = paidRows.reduce((sum, r) => sum + (r.settled === true ? toNumber(r.price) : 0), 0);
