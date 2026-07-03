@@ -1239,6 +1239,8 @@
           }
         });
 
+        if (!normalized.cooperationType) normalized.cooperationType = "寄拍";
+
         return {
           ...row,
           ...normalized
@@ -1248,7 +1250,7 @@
       return {
         id: row.id || createId(),
         brandName: row.name || row.brand || row.blogger || "",
-        cooperationType: row.type || "现金",
+        cooperationType: row.type || "寄拍",
         price: row.amount || row.price || "",
         taobaoAdvance: "",
         principalReturned: false,
@@ -1523,7 +1525,9 @@
       };
 
       columns.forEach((column) => {
-        if (column.type === "check") {
+        if (column.key === "cooperationType") {
+          row[column.key] = data[column.key] || "寄拍";
+        } else if (column.type === "check") {
           row[column.key] = data[column.key] || false;
         } else {
           row[column.key] = data[column.key] || "";
