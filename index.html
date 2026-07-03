@@ -820,6 +820,36 @@
 
   <script>
     const PASSWORD = "200366";
+    const SECRET_FIELDS = ["masterKey", "binId", "aiApiKey", "ghToken"];
+
+    async function encryptSettings(settingsObj) {
+      const plain = JSON.stringify(SECRET_FIELDS.reduce((o, k) => { if (settingsObj[k]) o[k] = settingsObj[k]; return o; }, {}));
+      if (!plain || plain === "{}") return "";
+      const enc = new TextEncoder();
+      const km = await crypto.subtle.importKey("raw", enc.encode(PASSWORD), "PBKDF2", false, ["deriveKey"]);
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" }, km, { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plain));
+      const combined = new Uint8Array(salt.length + iv.length + ct.byteLength);
+      combined.set(salt); combined.set(iv, salt.length); combined.set(new Uint8Array(ct), salt.length + iv.length);
+      return btoa(String.fromCharCode(...combined));
+    }
+
+    async function decryptSettings(ciphertext, settingsObj) {
+      if (!ciphertext) return;
+      try {
+        const enc = new TextEncoder();
+        const combined = Uint8Array.from(atob(ciphertext), c => c.charCodeAt(0));
+        const salt = combined.slice(0, 16), iv = combined.slice(16, 28), data = combined.slice(28);
+        const km = await crypto.subtle.importKey("raw", enc.encode(PASSWORD), "PBKDF2", false, ["deriveKey"]);
+        const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" }, km, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+        const dec = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
+        const parsed = JSON.parse(new TextDecoder().decode(dec));
+        Object.keys(parsed).forEach(k => { settingsObj[k] = parsed[k]; });
+      } catch(e) { console.log("decrypt failed, using plain settings"); }
+    }
+
     const STORAGE_KEY = "pr_tracker_v2";
     const SETTINGS_KEY = "pr_tracker_settings_v2";
     const OLD_STORAGE_KEY = "pr_tracker";
@@ -1997,6 +2027,7 @@
             settings.fontSize = cs.fontSize || settings.fontSize || 16;
             settings.ghToken = cs.ghToken || settings.ghToken || "";
             settings.ghRepo = cs.ghRepo || settings.ghRepo || "lukeann/lukeann.github.io";
+            if (cs._encrypted) await decryptSettings(cs._encrypted, settings);
             saveSettings();
           }
 
@@ -2059,8 +2090,11 @@
             settings.aiApiUrl = cs.aiApiUrl || settings.aiApiUrl || "";
             settings.aiApiKey = cs.aiApiKey || settings.aiApiKey || "";
             settings.aiModel = cs.aiModel || settings.aiModel || "";
+            settings.ghToken = cs.ghToken || settings.ghToken || "";
+            settings.ghRepo = cs.ghRepo || settings.ghRepo || "lukeann/lukeann.github.io";
             settings.theme = cs.theme || settings.theme || "auto";
             settings.fontSize = cs.fontSize || settings.fontSize || 16;
+            if (cs._encrypted) await decryptSettings(cs._encrypted, settings);
             saveSettings();
           }
 
@@ -2106,13 +2140,18 @@
         isSyncing = true;
         updateSyncStatus("syncing");
 
+        const encryptedSecret = await encryptSettings(settings);
+        const safeSettings = { ...settings };
+        SECRET_FIELDS.forEach(k => { safeSettings[k] = ""; });
+        if (encryptedSecret) safeSettings._encrypted = encryptedSecret;
+
         const res = await fetch(`https://api.jsonbin.io/v3/b/${settings.binId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             "X-Master-Key": settings.masterKey
           },
-          body: JSON.stringify({ ...state, _settings: settings })
+          body: JSON.stringify({ ...state, _settings: safeSettings })
         });
 
         if (!res.ok) throw new Error("同步失败");
