@@ -307,8 +307,8 @@
     }
 
     .table-wrap {
-      overflow-x: auto;
-      overflow-y: hidden;
+      max-height: calc(100vh - 260px);
+      overflow: auto;
       border-radius: 0 0 var(--radius) var(--radius);
     }
 
@@ -356,6 +356,32 @@
       font-size: 12px;
       font-weight: 700;
       background: #f1f5f9;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+    }
+
+    th:first-child,
+    td:first-child {
+      position: sticky;
+      left: 0;
+      min-width: 150px;
+      max-width: 210px;
+      z-index: 2;
+      box-shadow: 1px 0 0 var(--line);
+    }
+
+    th:first-child {
+      z-index: 4;
+      background: #e2e8f0;
+    }
+
+    td:first-child {
+      background: var(--card);
+      font-weight: 600;
     }
 
     td[contenteditable="true"] {
@@ -585,11 +611,20 @@
       }
 
       td {
+        position: static;
         border: 0;
         display: grid;
         grid-template-columns: 82px 1fr;
         gap: 10px;
         padding: 8px 0;
+      }
+
+      th:first-child,
+      td:first-child {
+        position: static;
+        min-width: 0;
+        max-width: none;
+        box-shadow: none;
       }
 
       td::before {
@@ -854,6 +889,18 @@
     const SETTINGS_KEY = "pr_tracker_settings_v2";
     const OLD_STORAGE_KEY = "pr_tracker";
     const OLD_SETTINGS_KEY = "pr_tracker_settings";
+    const DEFAULT_SETTINGS = {
+      masterKey: "",
+      binId: "",
+      aiApiUrl: "",
+      aiApiKey: "",
+      aiModel: "",
+      theme: "auto",
+      fontSize: 16,
+      ghToken: "",
+      ghRepo: "lukeann/lukeann.github.io",
+      pendingSync: false
+    };
 
     const defaultColumns = [
       { key: "brandName", label: "品牌名称", type: "text" },
@@ -1305,42 +1352,58 @@
       const raw = localStorage.getItem(SETTINGS_KEY) || localStorage.getItem(OLD_SETTINGS_KEY);
 
       if (!raw) {
-        return {
-          masterKey: "",
-          binId: "",
-          aiApiUrl: "",
-          aiApiKey: "",
-          aiModel: "",
-          theme: "auto",
-          fontSize: 16,
-          pendingSync: false
-        };
+        return cloneDefault(DEFAULT_SETTINGS);
       }
 
       try {
-        const parsed = JSON.parse(raw);
-        return {
-          masterKey: parsed.masterKey || "",
-          binId: parsed.binId || "",
-          aiApiUrl: parsed.aiApiUrl || "",
-          aiApiKey: parsed.aiApiKey || "",
-          aiModel: parsed.aiModel || "",
-          theme: parsed.theme || "auto",
-          fontSize: parsed.fontSize || 16,
-          pendingSync: parsed.pendingSync || false
-        };
+        const parsed = normalizeSettings(JSON.parse(raw));
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(parsed));
+        return parsed;
       } catch {
-        return {
-          masterKey: "",
-          binId: "",
-          aiApiUrl: "",
-          aiApiKey: "",
-          aiModel: "",
-          theme: "auto",
-          fontSize: 16,
-          pendingSync: false
-        };
+        return cloneDefault(DEFAULT_SETTINGS);
       }
+    }
+
+    function normalizeSettings(input) {
+      const source = input || {};
+      return {
+        ...cloneDefault(DEFAULT_SETTINGS),
+        ...source,
+        theme: source.theme || DEFAULT_SETTINGS.theme,
+        fontSize: Number(source.fontSize) || DEFAULT_SETTINGS.fontSize,
+        ghRepo: source.ghRepo || DEFAULT_SETTINGS.ghRepo,
+        pendingSync: Boolean(source.pendingSync)
+      };
+    }
+
+    function mergeSettingsFromCloud(cloudSettings) {
+      if (!cloudSettings) return false;
+
+      const previous = JSON.stringify(settings);
+      const merged = normalizeSettings({
+        ...cloudSettings,
+        ...settings,
+        pendingSync: settings.pendingSync || cloudSettings.pendingSync
+      });
+
+      Object.keys(DEFAULT_SETTINGS).forEach((key) => {
+        const localValue = settings[key];
+        const cloudValue = cloudSettings[key];
+        const defaultValue = DEFAULT_SETTINGS[key];
+        const localHasValue = localValue !== "" && localValue !== undefined && localValue !== null;
+        const cloudHasValue = cloudValue !== "" && cloudValue !== undefined && cloudValue !== null;
+
+        if (!localHasValue && cloudHasValue) {
+          merged[key] = cloudValue;
+        } else if (key === "theme" && (!localValue || localValue === defaultValue) && cloudHasValue) {
+          merged[key] = cloudValue;
+        } else if (key === "fontSize" && (!localValue || Number(localValue) === defaultValue) && cloudHasValue) {
+          merged[key] = cloudValue;
+        }
+      });
+
+      settings = normalizeSettings(merged);
+      return previous !== JSON.stringify(settings);
     }
 
     function saveState() {
@@ -1348,6 +1411,7 @@
     }
 
     function saveSettings() {
+      settings = normalizeSettings(settings);
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     }
 
@@ -2017,18 +2081,9 @@
           state = normalizeState(data);
 
           if (data._settings) {
-            const cs = data._settings;
-            settings.masterKey = cs.masterKey || settings.masterKey || "";
-            settings.binId = cs.binId || settings.binId || "";
-            settings.aiApiUrl = cs.aiApiUrl || settings.aiApiUrl || "";
-            settings.aiApiKey = cs.aiApiKey || settings.aiApiKey || "";
-            settings.aiModel = cs.aiModel || settings.aiModel || "";
-            settings.theme = cs.theme || settings.theme || "auto";
-            settings.fontSize = cs.fontSize || settings.fontSize || 16;
-            settings.ghToken = cs.ghToken || settings.ghToken || "";
-            settings.ghRepo = cs.ghRepo || settings.ghRepo || "lukeann/lukeann.github.io";
-            if (cs._encrypted) await decryptSettings(cs._encrypted, settings);
-            saveSettings();
+            const cloudSettings = { ...data._settings };
+            if (cloudSettings._encrypted) await decryptSettings(cloudSettings._encrypted, cloudSettings);
+            if (mergeSettingsFromCloud(cloudSettings)) saveSettings();
           }
 
           cloudLoaded = true;
@@ -2084,18 +2139,9 @@
 
           // 从云端恢复设置（优先保留本地非空值）
           if (data.record._settings) {
-            const cs = data.record._settings;
-            settings.masterKey = cs.masterKey || settings.masterKey || "";
-            settings.binId = cs.binId || settings.binId || "";
-            settings.aiApiUrl = cs.aiApiUrl || settings.aiApiUrl || "";
-            settings.aiApiKey = cs.aiApiKey || settings.aiApiKey || "";
-            settings.aiModel = cs.aiModel || settings.aiModel || "";
-            settings.ghToken = cs.ghToken || settings.ghToken || "";
-            settings.ghRepo = cs.ghRepo || settings.ghRepo || "lukeann/lukeann.github.io";
-            settings.theme = cs.theme || settings.theme || "auto";
-            settings.fontSize = cs.fontSize || settings.fontSize || 16;
-            if (cs._encrypted) await decryptSettings(cs._encrypted, settings);
-            saveSettings();
+            const cloudSettings = { ...data.record._settings };
+            if (cloudSettings._encrypted) await decryptSettings(cloudSettings._encrypted, cloudSettings);
+            if (mergeSettingsFromCloud(cloudSettings)) saveSettings();
           }
 
           // 如果本地有配置但云端没有，立即把本地设置推上云端
