@@ -1,0 +1,1298 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PR TRACKER</title>
+  <style>
+    :root {
+      --bg: #f7f9fc;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5eaf0;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-soft: #eff6ff;
+      --primary-line: #bfdbfe;
+      --green: #16a34a;
+      --orange: #f59e0b;
+      --red: #dc2626;
+      --shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+      --radius: 16px;
+      --font-size: 16px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root[data-theme="auto"] {
+        --bg: #0f172a;
+        --card: #111827;
+        --text: #f9fafb;
+        --muted: #9ca3af;
+        --line: #263244;
+        --primary: #60a5fa;
+        --primary-hover: #3b82f6;
+        --primary-soft: #172554;
+        --primary-line: #1d4ed8;
+        --shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #0f172a;
+      --card: #111827;
+      --text: #f9fafb;
+      --muted: #9ca3af;
+      --line: #263244;
+      --primary: #60a5fa;
+      --primary-hover: #3b82f6;
+      --primary-soft: #172554;
+      --primary-line: #1d4ed8;
+      --shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: var(--font-size);
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .login {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .login-card {
+      width: min(420px, 100%);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
+
+    .login-card h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      letter-spacing: -0.04em;
+    }
+
+    .login-card p {
+      margin: 0 0 22px;
+      color: var(--muted);
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .input,
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--card);
+      color: var(--text);
+      padding: 13px 14px;
+      outline: none;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 150px;
+      line-height: 1.6;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 0 16px;
+      border-radius: 12px;
+      background: var(--primary);
+      color: #ffffff;
+      white-space: nowrap;
+      font-weight: 600;
+      transition: background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+      box-shadow: 0 6px 14px rgba(37, 99, 235, 0.18);
+    }
+
+    .btn:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn.secondary {
+      background: var(--primary-soft);
+      color: var(--primary);
+      box-shadow: none;
+      border: 1px solid var(--primary-line);
+    }
+
+    .btn.secondary:hover {
+      background: #dbeafe;
+    }
+
+    .btn.danger {
+      background: #fef2f2;
+      color: var(--red);
+      box-shadow: none;
+      border: 1px solid #fecaca;
+    }
+
+    .app {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(30px, 6vw, 58px);
+      letter-spacing: -0.08em;
+      line-height: 0.95;
+    }
+
+    .brand p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .sync-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.86);
+      border-radius: 12px;
+      padding: 9px 13px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--orange);
+    }
+
+    .dot.ok {
+      background: var(--green);
+    }
+
+    .dot.offline {
+      background: var(--red);
+    }
+
+    .month-row {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+    }
+
+    .month-tab {
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--muted);
+      border-radius: 12px;
+      padding: 10px 16px;
+      white-space: nowrap;
+      font-weight: 600;
+      transition: all 0.18s ease;
+    }
+
+    .month-tab:hover {
+      color: var(--primary);
+      border-color: var(--primary-line);
+      background: var(--primary-soft);
+    }
+
+    .month-tab.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .stat strong {
+      font-size: clamp(24px, 4vw, 36px);
+      letter-spacing: -0.05em;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 980px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 12px;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      color: #475569;
+      font-size: 12px;
+      font-weight: 700;
+      background: #f1f5f9;
+    }
+
+    td[contenteditable="true"] {
+      outline: none;
+      border-radius: 10px;
+    }
+
+    td[contenteditable="true"]:focus {
+      background: var(--primary-soft);
+      box-shadow: inset 0 0 0 1px var(--primary-line);
+    }
+
+    .status-select,
+    .type-select {
+      min-width: 96px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: var(--card);
+      color: var(--text);
+    }
+
+    .row-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .mini {
+      min-height: 34px;
+      padding: 0 10px;
+      border-radius: 10px;
+      background: var(--primary-soft);
+      color: var(--text);
+    }
+
+    .check-cell {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+    }
+
+    .check-cell input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+    }
+
+    .drawer {
+      position: fixed;
+      inset: auto 18px 18px auto;
+      width: min(520px, calc(100vw - 36px));
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.16);
+      padding: 18px;
+      z-index: 20;
+    }
+
+    .drawer h3 {
+      margin: 0 0 12px;
+      font-size: 20px;
+    }
+
+    .drawer p {
+      color: var(--muted);
+      line-height: 1.6;
+      margin: 0 0 14px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      background: var(--primary);
+      color: #ffffff;
+      padding: 12px 16px;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      z-index: 50;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        padding: 16px;
+      }
+
+      .topbar {
+        display: grid;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .panel-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .actions {
+        width: 100%;
+      }
+
+      .actions .btn {
+        flex: 1;
+      }
+
+      table,
+      thead,
+      tbody,
+      tr,
+      th,
+      td {
+        display: block;
+      }
+
+      table {
+        min-width: 0;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tbody {
+        padding: 12px;
+        display: grid;
+        gap: 12px;
+      }
+
+      tr {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 12px;
+        background: var(--card);
+      }
+
+      td {
+        border: 0;
+        display: grid;
+        grid-template-columns: 82px 1fr;
+        gap: 10px;
+        padding: 8px 0;
+      }
+
+      td::before {
+        content: attr(data-label);
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .row-actions {
+        justify-content: flex-end;
+      }
+
+      .drawer {
+        inset: auto 10px 10px 10px;
+        width: auto;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <section id="login" class="login">
+    <div class="login-card">
+      <h1>访问验证</h1>
+      <p>请输入密码访问 PR TRACKER</p>
+      <div class="field">
+        <label for="passwordInput">密码</label>
+        <input id="passwordInput" class="input" type="password" placeholder="输入密码" />
+      </div>
+      <button id="loginBtn" class="btn" style="width: 100%;">进入系统</button>
+    </div>
+  </section>
+
+  <main id="app" class="app hidden">
+    <header class="topbar">
+      <div class="brand">
+        <h1>PR TRACKER</h1>
+        <p>小红书合作跟进 · 猪猪虾<br />佛山市禅城区同华西路9号 · 18485667303</p>
+      </div>
+      <div id="syncStatus" class="sync-pill">
+        <i class="dot"></i>
+        <span>等待同步</span>
+      </div>
+    </header>
+
+    <nav id="monthTabs" class="month-row"></nav>
+
+    <section class="stats">
+      <div class="stat">
+        <span>合作报价合计</span>
+        <strong id="totalPending">¥0</strong>
+      </div>
+      <div class="stat">
+        <span>卖出收入合计</span>
+        <strong id="totalConfirmed">¥0</strong>
+      </div>
+      <div class="stat">
+        <span>预计差额</span>
+        <strong id="totalWaiting">¥0</strong>
+      </div>
+      <div class="stat">
+        <span>已结款 / 总数</span>
+        <strong id="giftCount">0 / 0</strong>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2 id="currentMonthTitle">3月数据</h2>
+        <div class="actions">
+          <button id="addRowBtn" class="btn">加行</button>
+          <button id="addColumnBtn" class="btn secondary">加列</button>
+          <button id="aiBtn" class="btn secondary">AI解析</button>
+          <button id="addMonthBtn" class="btn secondary">加月份</button>
+          <button id="settingsBtn" class="btn secondary">设置</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="footer-note">
+      操作后会自动保存并尝试云端同步；离线时会先保存在本机，恢复网络后立即补同步。
+    </p>
+  </main>
+
+  <section id="aiDrawer" class="drawer hidden">
+    <h3>AI解析微信对话</h3>
+    <p>把微信里复制的杂乱聊天内容粘贴进来。系统会识别金额、日期、合作类型、状态、联系方式和备注，并添加到当前月份。</p>
+
+    <div class="field">
+      <label for="chatInput">微信聊天内容</label>
+      <textarea id="chatInput" placeholder="例：&#10;小王 3月15号 小红书图文 置换 已寄出&#10;报价 800，尾款未结&#10;微信 wx123456"></textarea>
+    </div>
+
+    <div class="actions">
+      <button id="parseBtn" class="btn">解析并添加</button>
+      <button id="closeAiBtn" class="btn secondary">关闭</button>
+    </div>
+  </section>
+
+  <section id="settingsDrawer" class="drawer hidden">
+    <h3>设置</h3>
+
+    <div class="field">
+      <label for="masterKey">JSONBin Master Key</label>
+      <input id="masterKey" class="input" type="password" placeholder="X-Master-Key" />
+    </div>
+
+    <div class="field">
+      <label for="binId">JSONBin Bin ID</label>
+      <input id="binId" class="input" placeholder="Bin ID" />
+    </div>
+
+    <div class="field">
+      <label for="themeSelect">颜色模式</label>
+      <select id="themeSelect">
+        <option value="auto">自动跟随系统</option>
+        <option value="light">浅色</option>
+        <option value="dark">深色</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="fontSize">字体大小</label>
+      <input id="fontSize" class="input" type="range" min="14" max="20" step="1" />
+    </div>
+
+    <div class="actions">
+      <button id="syncNowBtn" class="btn">立即同步</button>
+      <button id="closeSettingsBtn" class="btn secondary">完成</button>
+    </div>
+
+    <p class="footer-note">
+      使用 JSONBin.io 时，请先创建一个 Bin，再填入 Master Key 和 Bin ID。保存后会自动上传当前数据。
+    </p>
+  </section>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script>
+    const PASSWORD = "1234";
+    const STORAGE_KEY = "pr_tracker_v2";
+    const SETTINGS_KEY = "pr_tracker_settings_v2";
+
+    const defaultColumns = [
+      { key: "brandName", label: "品牌名称", type: "text" },
+      { key: "cooperationType", label: "合作方式", type: "select", options: ["寄拍", "置换", "送拍", "报备", "现金", "其他"] },
+      { key: "price", label: "价格", type: "money" },
+      { key: "taobaoAdvance", label: "淘宝垫付", type: "money" },
+      { key: "principalReturned", label: "本金已返", type: "check" },
+      { key: "styleRequirement", label: "款式/要求", type: "text" },
+      { key: "deadline", label: "截止日期", type: "text" },
+      { key: "received", label: "已收到", type: "check" },
+      { key: "shot", label: "已拍摄", type: "check" },
+      { key: "published", label: "已发布", type: "check" },
+      { key: "returned", label: "已寄回", type: "check" },
+      { key: "sold", label: "已出掉", type: "check" },
+      { key: "soldPrice", label: "卖出价格", type: "money" },
+      { key: "settled", label: "已结款", type: "check" }
+    ];
+
+    const defaultState = {
+      activeMonth: "3月",
+      columns: defaultColumns,
+      months: {
+        "3月": [],
+        "6月": []
+      }
+    };
+
+    let state = loadState();
+    let settings = loadSettings();
+    let syncTimer = null;
+    let isSyncing = false;
+
+    const els = {
+      login: document.getElementById("login"),
+      app: document.getElementById("app"),
+      passwordInput: document.getElementById("passwordInput"),
+      loginBtn: document.getElementById("loginBtn"),
+      syncStatus: document.getElementById("syncStatus"),
+      monthTabs: document.getElementById("monthTabs"),
+      currentMonthTitle: document.getElementById("currentMonthTitle"),
+      tableHead: document.getElementById("tableHead"),
+      tableBody: document.getElementById("tableBody"),
+      totalPending: document.getElementById("totalPending"),
+      totalConfirmed: document.getElementById("totalConfirmed"),
+      totalWaiting: document.getElementById("totalWaiting"),
+      giftCount: document.getElementById("giftCount"),
+      addRowBtn: document.getElementById("addRowBtn"),
+      addColumnBtn: document.getElementById("addColumnBtn"),
+      aiBtn: document.getElementById("aiBtn"),
+      addMonthBtn: document.getElementById("addMonthBtn"),
+      settingsBtn: document.getElementById("settingsBtn"),
+      aiDrawer: document.getElementById("aiDrawer"),
+      chatInput: document.getElementById("chatInput"),
+      parseBtn: document.getElementById("parseBtn"),
+      closeAiBtn: document.getElementById("closeAiBtn"),
+      settingsDrawer: document.getElementById("settingsDrawer"),
+      masterKey: document.getElementById("masterKey"),
+      binId: document.getElementById("binId"),
+      themeSelect: document.getElementById("themeSelect"),
+      fontSize: document.getElementById("fontSize"),
+      syncNowBtn: document.getElementById("syncNowBtn"),
+      closeSettingsBtn: document.getElementById("closeSettingsBtn"),
+      toast: document.getElementById("toast")
+    };
+
+    init();
+
+    function init() {
+      applySettings();
+      bindEvents();
+
+      if (sessionStorage.getItem("pr_tracker_authed") === "yes") {
+        showApp();
+      }
+    }
+
+    function bindEvents() {
+      els.loginBtn.addEventListener("click", checkPassword);
+      els.passwordInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") checkPassword();
+      });
+
+      els.addRowBtn.addEventListener("click", () => {
+        addRow();
+        saveAndRender();
+      });
+
+      els.addColumnBtn.addEventListener("click", addColumn);
+
+      els.aiBtn.addEventListener("click", () => els.aiDrawer.classList.remove("hidden"));
+      els.closeAiBtn.addEventListener("click", () => els.aiDrawer.classList.add("hidden"));
+
+      els.settingsBtn.addEventListener("click", openSettings);
+      els.closeSettingsBtn.addEventListener("click", closeSettings);
+
+      els.addMonthBtn.addEventListener("click", addMonth);
+
+      els.parseBtn.addEventListener("click", () => {
+        const rows = parseWechatText(els.chatInput.value);
+        if (!rows.length) {
+          toast("没有识别到可添加的数据");
+          return;
+        }
+
+        state.months[state.activeMonth].push(...rows);
+        els.chatInput.value = "";
+        els.aiDrawer.classList.add("hidden");
+        saveAndRender();
+        toast(`已添加 ${rows.length} 条`);
+      });
+
+      els.syncNowBtn.addEventListener("click", () => {
+        saveSettingsFromForm();
+        syncToCloud(true);
+      });
+
+      els.themeSelect.addEventListener("change", () => {
+        settings.theme = els.themeSelect.value;
+        saveSettings();
+        applySettings();
+      });
+
+      els.fontSize.addEventListener("input", () => {
+        settings.fontSize = els.fontSize.value;
+        saveSettings();
+        applySettings();
+      });
+
+      window.addEventListener("online", () => {
+        updateSyncStatus("online");
+        syncToCloud(true);
+      });
+
+      window.addEventListener("offline", () => updateSyncStatus("offline"));
+
+      document.addEventListener("input", (event) => {
+        const cell = event.target.closest("[data-row-id][data-field]");
+        if (!cell) return;
+
+        updateRow(cell.dataset.rowId, cell.dataset.field, cell.textContent.trim());
+        saveAndRender(false);
+      });
+
+      document.addEventListener("change", (event) => {
+        const control = event.target.closest("[data-row-id][data-field]");
+        if (!control) return;
+
+        const value = control.type === "checkbox" ? control.checked : control.value;
+        updateRow(control.dataset.rowId, control.dataset.field, value);
+        saveAndRender();
+      });
+
+      document.addEventListener("click", (event) => {
+        const deleteBtn = event.target.closest("[data-delete-id]");
+        if (!deleteBtn) return;
+
+        const id = deleteBtn.dataset.deleteId;
+        state.months[state.activeMonth] = state.months[state.activeMonth].filter((row) => row.id !== id);
+        saveAndRender();
+      });
+    }
+
+    function checkPassword() {
+      if (els.passwordInput.value === PASSWORD) {
+        sessionStorage.setItem("pr_tracker_authed", "yes");
+        showApp();
+      } else {
+        toast("密码不正确");
+      }
+    }
+
+    function showApp() {
+      els.login.classList.add("hidden");
+      els.app.classList.remove("hidden");
+      render();
+      loadFromCloud();
+    }
+
+    function loadState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return structuredClone(defaultState);
+
+      try {
+        const parsed = JSON.parse(raw);
+        return {
+          activeMonth: parsed.activeMonth || "3月",
+          columns: parsed.columns && parsed.columns.length ? parsed.columns : defaultColumns,
+          months: parsed.months || structuredClone(defaultState.months)
+        };
+      } catch {
+        return structuredClone(defaultState);
+      }
+    }
+
+    function loadSettings() {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (!raw) {
+        return {
+          masterKey: "",
+          binId: "",
+          theme: "auto",
+          fontSize: 16,
+          pendingSync: false
+        };
+      }
+
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return {
+          masterKey: "",
+          binId: "",
+          theme: "auto",
+          fontSize: 16,
+          pendingSync: false
+        };
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function saveSettings() {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    }
+
+    function saveAndRender(shouldRender = true) {
+      settings.pendingSync = true;
+      saveState();
+      saveSettings();
+
+      if (shouldRender) render();
+
+      scheduleSync();
+    }
+
+    function render() {
+      renderMonths();
+      renderTable();
+      renderStats();
+      updateSyncStatus(navigator.onLine ? "waiting" : "offline");
+    }
+
+    function renderMonths() {
+      els.monthTabs.innerHTML = "";
+
+      Object.keys(state.months).forEach((month) => {
+        const btn = document.createElement("button");
+        btn.className = `month-tab ${month === state.activeMonth ? "active" : ""}`;
+        btn.textContent = `${month} (${state.months[month].length})`;
+        btn.addEventListener("click", () => {
+          state.activeMonth = month;
+          saveState();
+          render();
+        });
+        els.monthTabs.appendChild(btn);
+      });
+    }
+
+    function renderTable() {
+      const rows = state.months[state.activeMonth] || [];
+      const columns = state.columns || defaultColumns;
+      els.currentMonthTitle.textContent = `${state.activeMonth}数据`;
+
+      els.tableHead.innerHTML = `
+        <tr>
+          ${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join(“”)}
+          <th>操作</th>
+        </tr>
+      `;
+
+      els.tableBody.innerHTML = “”;
+
+      if (!rows.length) {
+        const tr = document.createElement(“tr”);
+        tr.innerHTML = `
+          <td data-label=”提示” colspan=”${columns.length + 1}” style=”color: var(--muted); padding: 24px;”>
+            当前月份暂无数据，可以点击”加行”或”AI解析”添加。
+          </td>
+        `;
+        els.tableBody.appendChild(tr);
+        return;
+      }
+
+      rows.forEach((row) => {
+        const tr = document.createElement(“tr”);
+
+        const cells = columns.map((column) => {
+          const value = row[column.key] ?? “”;
+
+          if (column.type === “select”) {
+            return `
+              <td data-label=”${escapeHtml(column.label)}”>
+                <select class=”type-select” data-row-id=”${row.id}” data-field=”${column.key}”>
+                  ${(column.options || []).map((item) => `
+                    <option value=”${escapeHtml(item)}” ${value === item ? “selected” : “”}>${escapeHtml(item)}</option>
+                  `).join(“”)}
+                </select>
+              </td>
+            `;
+          }
+
+          if (column.type === “check”) {
+            return `
+              <td data-label=”${escapeHtml(column.label)}”>
+                <label class=”check-cell”>
+                  <input type=”checkbox” data-row-id=”${row.id}” data-field=”${column.key}” ${value ? “checked” : “”} />
+                  <span>${value ? “是” : “否”}</span>
+                </label>
+              </td>
+            `;
+          }
+
+          return `
+            <td
+              data-label=”${escapeHtml(column.label)}”
+              contenteditable=”true”
+              data-row-id=”${row.id}”
+              data-field=”${column.key}”
+            >${escapeHtml(value)}</td>
+          `;
+        }).join(“”);
+
+        tr.innerHTML = `
+          ${cells}
+          <td data-label=”操作”>
+            <div class=”row-actions”>
+              <button class=”mini” data-delete-id=”${row.id}”>删除</button>
+            </div>
+          </td>
+        `;
+
+        els.tableBody.appendChild(tr);
+      });
+    }
+
+    function renderStats() {
+      const rows = state.months[state.activeMonth] || [];
+
+      const totalPrice = rows.reduce((sum, row) => sum + toNumber(row.price), 0);
+      const totalSold = rows.reduce((sum, row) => sum + toNumber(row.soldPrice), 0);
+      const settledCount = rows.filter((row) => row.settled).length;
+
+      els.totalPending.textContent = formatMoney(totalPrice);
+      els.totalConfirmed.textContent = formatMoney(totalSold);
+      els.totalWaiting.textContent = formatMoney(Math.max(totalPrice - totalSold, 0));
+      els.giftCount.textContent = `${settledCount} / ${rows.length}`;
+    }
+
+    function addRow(data = {}) {
+      const monthRows = state.months[state.activeMonth];
+      const columns = state.columns || defaultColumns;
+
+      const row = {
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random())
+      };
+
+      columns.forEach((column) => {
+        if (column.type === "check") {
+          row[column.key] = data[column.key] || false;
+        } else {
+          row[column.key] = data[column.key] || "";
+        }
+      });
+
+      monthRows.push(row);
+    }
+
+    function addColumn() {
+      const label = prompt("请输入新列名称，例如：快递单号、联系人、备注");
+      if (!label) return;
+
+      const cleanLabel = label.trim();
+      if (!cleanLabel) return;
+
+      const key = `custom_${Date.now()}`;
+
+      state.columns.push({
+        key,
+        label: cleanLabel,
+        type: "text",
+        custom: true
+      });
+
+      Object.keys(state.months).forEach((month) => {
+        state.months[month].forEach((row) => {
+          row[key] = "";
+        });
+      });
+
+      saveAndRender();
+    }
+
+    function addMonth() {
+      const input = prompt("输入月份，例如：7月");
+      if (!input) return;
+
+      const month = input.trim();
+      if (!month) return;
+
+      if (!state.months[month]) {
+        state.months[month] = [];
+      }
+
+      state.activeMonth = month;
+      saveAndRender();
+    }
+
+    function updateRow(id, field, value) {
+      const row = state.months[state.activeMonth].find((item) => item.id === id);
+      if (!row) return;
+
+      row[field] = value;
+    }
+
+    function parseWechatText(text) {
+      if (!text.trim()) return [];
+
+      const blocks = text
+        .split(/\n{2,}|-{3,}|={3,}/)
+        .map((block) => block.trim())
+        .filter(Boolean);
+
+      return blocks.map(parseBlock).filter(Boolean);
+    }
+
+    function parseBlock(block) {
+      const clean = block.replace(/\s+/g, " ").trim();
+      if (!clean) return null;
+
+      const amountMatch = clean.match(/(?:¥|￥)?\s*(\d+(?:\.\d+)?)\s*(?:元|块|rmb|RMB)?/);
+      const dateMatch = clean.match(/(\d{1,2}[月./-]\d{1,2}[日号]?|\d{1,2}[日号]|\d+月内|\d+月底前)/);
+
+      let type = "寄拍";
+      if (/置换|互换/.test(clean)) type = "置换";
+      if (/送拍/.test(clean)) type = "送拍";
+      if (/报备/.test(clean)) type = "报备";
+
+      const firstLine = block.split("\n").map((line) => line.trim()).filter(Boolean)[0] || "";
+      const name = guessName(firstLine);
+
+      return {
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+        brandName: name,
+        cooperationType: type,
+        price: amountMatch ? amountMatch[1] : "",
+        taobaoAdvance: guessTaobaoAdvance(clean),
+        principalReturned: /本金已返|已返本金|返本金|已返/.test(clean),
+        styleRequirement: guessStyleRequirement(clean),
+        deadline: dateMatch ? dateMatch[0] : "",
+        received: /已收到|收到货|收到了|已签收/.test(clean),
+        shot: /已拍摄|拍完|已拍|拍好了/.test(clean),
+        published: /已发布|已发笔记|已发|发布了/.test(clean),
+        returned: /已寄回|寄回了|已退回|退回/.test(clean),
+        sold: /已出掉|卖掉|已卖|出掉了/.test(clean),
+        soldPrice: guessSoldPrice(clean),
+        settled: /已结款|已结清|结清|已付款|已到账/.test(clean)
+      };
+    }
+
+    function guessName(line) {
+      return line
+        .replace(/\d{1,2}[月./-]\d{1,2}[日号]?/g, "")
+        .replace(/(?:¥|￥)?\s*\d+(?:\.\d+)?\s*(?:元|块)?/g, "")
+        .split(/[，,。；;：:\s]/)
+        .filter(Boolean)[0] || "";
+    }
+
+    function guessTaobaoAdvance(text) {
+      const match = text.match(/(?:淘宝垫付|垫付|本金)[:：\s]*(?:¥|￥)?\s*(\d+(?:\.\d+)?)/);
+      return match ? match[1] : "";
+    }
+
+    function guessSoldPrice(text) {
+      const match = text.match(/(?:卖出|出掉|卖了|二手)[:：\s]*(?:¥|￥)?\s*(\d+(?:\.\d+)?)/);
+      return match ? match[1] : "";
+    }
+
+    function guessStyleRequirement(text) {
+      const match = text.match(/(?:款式|要求|颜色|尺码)[:：\s]*([^，。,；;]+)/);
+      return match ? match[1].trim() : "";
+    }
+
+    function scheduleSync() {
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => syncToCloud(false), 900);
+    }
+
+    async function loadFromCloud() {
+      if (!settings.masterKey || !settings.binId || !navigator.onLine) return;
+
+      try {
+        updateSyncStatus("syncing");
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${settings.binId}/latest`, {
+          headers: {
+            "X-Master-Key": settings.masterKey
+          }
+        });
+
+        if (!res.ok) throw new Error("读取失败");
+
+        const data = await res.json();
+
+        if (data.record && data.record.months) {
+          state = data.record;
+          saveState();
+          render();
+          updateSyncStatus("done");
+        }
+      } catch {
+        updateSyncStatus("error");
+      }
+    }
+
+    async function syncToCloud(force) {
+      if (isSyncing) return;
+      if (!settings.masterKey || !settings.binId) {
+        updateSyncStatus("local");
+        return;
+      }
+
+      if (!navigator.onLine) {
+        settings.pendingSync = true;
+        saveSettings();
+        updateSyncStatus("offline");
+        return;
+      }
+
+      if (!settings.pendingSync && !force) return;
+
+      try {
+        isSyncing = true;
+        updateSyncStatus("syncing");
+
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${settings.binId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Master-Key": settings.masterKey
+          },
+          body: JSON.stringify(state)
+        });
+
+        if (!res.ok) throw new Error("同步失败");
+
+        settings.pendingSync = false;
+        saveSettings();
+        updateSyncStatus("done");
+        toast("已同步");
+      } catch {
+        settings.pendingSync = true;
+        saveSettings();
+        updateSyncStatus("error");
+      } finally {
+        isSyncing = false;
+      }
+    }
+
+    function openSettings() {
+      els.masterKey.value = settings.masterKey || "";
+      els.binId.value = settings.binId || "";
+      els.themeSelect.value = settings.theme || "auto";
+      els.fontSize.value = settings.fontSize || 16;
+      els.settingsDrawer.classList.remove("hidden");
+    }
+
+    function closeSettings() {
+      saveSettingsFromForm();
+      els.settingsDrawer.classList.add("hidden");
+      applySettings();
+      syncToCloud(true);
+    }
+
+    function saveSettingsFromForm() {
+      settings.masterKey = els.masterKey.value.trim();
+      settings.binId = els.binId.value.trim();
+      settings.theme = els.themeSelect.value;
+      settings.fontSize = els.fontSize.value;
+      saveSettings();
+    }
+
+    function applySettings() {
+      document.documentElement.dataset.theme = settings.theme || "auto";
+
+      if ((settings.theme || "auto") === "light") {
+        document.documentElement.removeAttribute("data-theme");
+      } else {
+        document.documentElement.dataset.theme = settings.theme;
+      }
+
+      document.documentElement.style.setProperty("--font-size", `${settings.fontSize || 16}px`);
+    }
+
+    function updateSyncStatus(type) {
+      const dot = els.syncStatus.querySelector(".dot");
+      const text = els.syncStatus.querySelector("span");
+
+      dot.className = "dot";
+
+      const map = {
+        online: "网络已恢复，准备同步",
+        waiting: settings.pendingSync ? "有改动待同步" : "本地已保存",
+        syncing: "正在同步",
+        done: "云端已同步",
+        local: "本地已保存，未配置云端",
+        offline: "离线保存中",
+        error: "同步失败，稍后重试"
+      };
+
+      if (type === "done" || type === "local") dot.classList.add("ok");
+      if (type === "offline" || type === "error") dot.classList.add("offline");
+
+      text.textContent = map[type] || "等待同步";
+    }
+
+    function option(value, current) {
+      return `<option value="${value}" ${value === current ? "selected" : ""}>${value}</option>`;
+    }
+
+    function toNumber(value) {
+      const num = Number(String(value || "").replace(/[^\d.]/g, ""));
+      return Number.isFinite(num) ? num : 0;
+    }
+
+    function formatMoney(value) {
+      return `¥${Math.round(value).toLocaleString("zh-CN")}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function toast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.remove("hidden");
+
+      clearTimeout(els.toast.timer);
+      els.toast.timer = setTimeout(() => {
+        els.toast.classList.add("hidden");
+      }, 1800);
+    }
+  </script>
+</body>
+</html>

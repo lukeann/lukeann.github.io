@@ -1194,10 +1194,11 @@
       document.addEventListener("input", (event) => {
         const cell = event.target.closest("[data-row-id][data-field]");
         if (!cell) return;
-        // 跳过 select 和 checkbox，它们由 change 事件处理
+        // 跳过 select 和 checkbox，它们由 change 事件处理。
+        // contenteditable 单元格在输入、粘贴时会立刻更新统计。
         if (event.target.tagName === "SELECT" || event.target.type === "checkbox") return;
 
-        updateRow(cell.dataset.rowId, cell.dataset.field, cell.textContent.trim());
+        updateRow(cell.dataset.rowId, cell.dataset.field, readCellValue(cell));
         saveAndRender(false);
       });
 
@@ -1208,6 +1209,16 @@
         const value = control.type === "checkbox" ? control.checked : control.value;
         updateRow(control.dataset.rowId, control.dataset.field, value);
         saveAndRender();
+      });
+
+      // 部分浏览器或输入法在结束编辑时才提交 contenteditable 的 input 事件。
+      // 失焦时再保存一次，避免出现“看起来改了，但统计没有刷新”的情况。
+      document.addEventListener("focusout", (event) => {
+        const cell = event.target.closest('[contenteditable="true"][data-row-id][data-field]');
+        if (!cell) return;
+
+        updateRow(cell.dataset.rowId, cell.dataset.field, readCellValue(cell));
+        saveAndRender(false);
       });
 
       document.addEventListener("click", (event) => {
@@ -1310,7 +1321,8 @@
 
         defaultColumns.forEach((column) => {
           if (column.type === "check") {
-            normalized[column.key] = Boolean(row[column.key]);
+            // "N/A" 是“不适用”，不能因为非空字符串而被误判为已勾选。
+            normalized[column.key] = row[column.key] === "N/A" ? "N/A" : row[column.key] === true;
           } else {
             normalized[column.key] = row[column.key] || "";
           }
@@ -1556,21 +1568,6 @@
       const paidRows = rows.filter((r) => { const t = String(r.cooperationType || "").trim(); return !t || t.includes("寄拍") || t.includes("送拍") || t.includes("报备") || t.includes("现金"); });
       const exchangeRows = rows.filter((r) => String(r.cooperationType || "").trim().includes("置换"));
 
-      // 调试：打印每行合作方式和价格
-      console.group("Stats " + state.activeMonth);
-      let dbgPaid = 0, dbgEx = 0;
-      rows.forEach((r, i) => {
-        const t = String(r.cooperationType || "").trim();
-        const p = toNumber(r.price);
-        const isP = paidRows.includes(r);
-        const isE = exchangeRows.includes(r);
-        if (isP) dbgPaid += p;
-        if (isE && r.sold) dbgEx += toNumber(r.soldPrice);
-        console.log((i+1) + ".", r.brandName, "| 类型:", t, "| 价格:", p, "| 计入寄拍送拍:", isP, "| 计入置换:", isE);
-      });
-      console.log("寄拍/送拍/报备/现金 预计:", dbgPaid, "| 置换已卖出:", dbgEx);
-      console.groupEnd();
-
       const paidIncome = paidRows.reduce((sum, r) => sum + toNumber(r.price), 0);
       const paidSettled = paidRows.reduce((sum, r) => sum + (r.settled === true ? toNumber(r.price) : 0), 0);
       const soldIncome = exchangeRows.reduce((sum, r) => sum + (r.sold === true ? toNumber(r.soldPrice) : 0), 0);
@@ -1580,7 +1577,7 @@
       const pendingPublish = rows.filter((r) => r.published !== true).length;
       const pendingReturn = rows.filter((r) => needsReturn(r) && r.returned !== true).length;
       const advanceUnreturned = rows.filter((r) => toNumber(r.taobaoAdvance) > 0 && r.principalReturned !== true).length;
-      const exchangeUnsold = rows.filter((r) => r.cooperationType === "置换" && r.sold !== true).length;
+      const exchangeUnsold = exchangeRows.filter((r) => r.sold !== true).length;
       const completedCount = rows.filter(isCompletedRow).length;
 
       els.totalIncome.textContent = formatMoney(totalIncome);
@@ -1672,7 +1669,10 @@
     }
 
     function updateRow(id, field, value) {
-      const row = state.months[state.activeMonth].find((item) => item.id === id);
+      // 通过 ID 查找，而不是依赖当前选中的月份，避免切换月份或重绘时写入丢失。
+      const row = Object.values(state.months)
+        .flat()
+        .find((item) => item.id === id);
       if (!row) return;
 
       row[field] = value;
@@ -1680,6 +1680,11 @@
       if (field === "cooperationType") {
         applyTypeRulesToRow(row);
       }
+    }
+
+    function readCellValue(cell) {
+      // innerText 更贴近用户在 contenteditable 中看到的文本；同时清理粘贴产生的换行。
+      return (cell.innerText || cell.textContent || "").replace(/\s+/g, " ").trim();
     }
 
     async function parseWechatTextWithAI(text) {

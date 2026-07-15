@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp:*)",
+      "Bash(mkdir:*)",
+      "Bash(node install.js)",
+      "Bash(claude:*)",
+      "Bash(gh search:*)",
+      "Bash(curl -s \"https://api.github.com/users/LupinLin1/repos\")",
+      "Bash(curl -s \"https://api.github.com/users/LupinLin1/repos?per_page=50\")",
+      "Bash(python3 -c \"import sys,json; [print\\(r['name'],'-',r.get\\('description',''\\)\\) for r in json.load\\(sys.stdin\\)]\")",
+      "Bash(curl -s \"https://api.github.com/repos/sjzar/chatlog\")",
+      "Bash(python3 -c \"import sys,json; r=json.load\\(sys.stdin\\); print\\(r.get\\('description',''\\)\\); print\\(r.get\\('html_url',''\\)\\)\")",
+      "WebFetch(domain:github.com)",
+      "Bash(rm:*)",
+      "Bash(cmd:*)",
+      "Bash(powershell:*)",
+      "Bash(rmdir wechatlog-mcp-server:*)",
+      "Bash(sed:*)",
+      "Bash(sort -t: -k2)",
+      "Bash(node -e ':*)",
+      "Bash(node --check /tmp/pr-tracker-js.js)",
+      "Bash(node --check \"C:/Users/30710/AppData/Local/Temp/pr-tracker-js.js\")",
+      "Bash(node -e \"const fs=require\\('fs'\\);const h=fs.readFileSync\\('index.html','utf-8'\\);const m=h.match\\(/<script>\\([\\\\s\\\\S]*\\)<\\\\/script>/\\);if\\(m\\)fs.writeFileSync\\('C:/Users/30710/AppData/Local/Temp/pr-tracker-js.js',m[1]\\)\")",
+      "Bash(curl -sI https://github.com)"
+    ]
+  }
+}
