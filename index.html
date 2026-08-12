@@ -843,6 +843,7 @@
 
     <div class="actions">
       <button id="syncNowBtn" class="btn">立即同步</button>
+      <button id="exportLogBtn" class="btn secondary">导出诊断日志</button>
       <button id="closeSettingsBtn" class="btn secondary">完成</button>
     </div>
 
@@ -887,6 +888,9 @@
 
     const STORAGE_KEY = "pr_tracker_v2";
     const SETTINGS_KEY = "pr_tracker_settings_v2";
+    const SETTINGS_BACKUP_KEY = "pr_tracker_settings_v2_backup";
+    const DIAGNOSTIC_LOG_KEY = "pr_tracker_diagnostic_log_v1";
+    const DIAGNOSTIC_LOG_LIMIT = 100;
     const OLD_STORAGE_KEY = "pr_tracker";
     const OLD_SETTINGS_KEY = "pr_tracker_settings";
     const DEFAULT_SETTINGS = {
@@ -1022,6 +1026,7 @@
       themeSelect: document.getElementById("themeSelect"),
       fontSize: document.getElementById("fontSize"),
       syncNowBtn: document.getElementById("syncNowBtn"),
+      exportLogBtn: document.getElementById("exportLogBtn"),
       closeSettingsBtn: document.getElementById("closeSettingsBtn"),
       toast: document.getElementById("toast")
     };
@@ -1029,6 +1034,7 @@
     init();
 
     function init() {
+      writeDiagnosticLog("app_started", { online: navigator.onLine });
       applySettings();
       bindEvents();
 
@@ -1095,8 +1101,6 @@
           toast("请先粘贴微信聊天内容");
           return;
         }
-
-        saveSettingsFromForm();
 
         if (!settings.aiApiUrl || !settings.aiApiKey || !settings.aiModel) {
           toast("请先在设置里填写 AI API 配置");
@@ -1171,6 +1175,7 @@
         saveSettingsFromForm();
         syncToCloud(true);
       });
+      els.exportLogBtn.addEventListener("click", exportDiagnosticLog);
 
       els.themeSelect.addEventListener("change", () => {
         settings.theme = els.themeSelect.value;
@@ -1361,19 +1366,43 @@
     }
 
     function loadSettings() {
-      const raw = localStorage.getItem(SETTINGS_KEY) || localStorage.getItem(OLD_SETTINGS_KEY);
+      const current = readSettings(SETTINGS_KEY) || readSettings(OLD_SETTINGS_KEY);
+      const backup = readSettings(SETTINGS_BACKUP_KEY);
+      // 如果主记录因意外空保存或损坏而丢失配置，使用最近一份有效本地备份恢复。
+      const loaded = hasSavedConfiguration(current) || !hasSavedConfiguration(backup)
+        ? current
+        : backup;
+      const normalized = normalizeSettings(loaded || DEFAULT_SETTINGS);
 
-      if (!raw) {
-        return cloneDefault(DEFAULT_SETTINGS);
+      if (hasSavedConfiguration(normalized)) {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(normalized));
+        localStorage.setItem(SETTINGS_BACKUP_KEY, JSON.stringify(normalized));
       }
+
+      writeDiagnosticLog("settings_loaded", {
+        source: loaded === backup ? "backup" : current ? "local" : "default",
+        hasSavedConfiguration: hasSavedConfiguration(normalized)
+      });
+
+      return normalized;
+    }
+
+    function readSettings(key) {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
 
       try {
-        const parsed = normalizeSettings(JSON.parse(raw));
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(parsed));
-        return parsed;
-      } catch {
-        return cloneDefault(DEFAULT_SETTINGS);
+        return normalizeSettings(JSON.parse(raw));
+      } catch (error) {
+        writeDiagnosticLog("settings_read_failed", { key, error: error.message });
+        return null;
       }
+    }
+
+    function hasSavedConfiguration(value) {
+      if (!value) return false;
+      return ["masterKey", "binId", "aiApiUrl", "aiApiKey", "aiModel", "ghToken"]
+        .some((key) => String(value[key] || "").trim() !== "");
     }
 
     function normalizeSettings(input) {
@@ -1425,6 +1454,11 @@
     function saveSettings() {
       settings = normalizeSettings(settings);
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      // 仅用含配置的版本更新备份，避免一次空表单提交覆盖可恢复的设置。
+      if (hasSavedConfiguration(settings)) {
+        localStorage.setItem(SETTINGS_BACKUP_KEY, JSON.stringify(settings));
+      }
+      writeDiagnosticLog("settings_saved", { hasSavedConfiguration: hasSavedConfiguration(settings) });
     }
 
     function saveAndRender(shouldRender = true) {
@@ -2076,10 +2110,15 @@
 
     async function loadFromGitHub() {
       try {
+        writeDiagnosticLog("github_load_started");
         const res = await fetch(
           "https://raw.githubusercontent.com/lukeann/lukeann.github.io/master/data.json"
         );
-        if (!res.ok) { loadFromCloud(); return; }
+        if (!res.ok) {
+          writeDiagnosticLog("github_load_failed", { status: res.status });
+          loadFromCloud();
+          return;
+        }
 
         const data = await res.json();
         if (data && data.months) {
@@ -2092,6 +2131,7 @@
           }
 
           cloudLoaded = true;
+          writeDiagnosticLog("github_load_succeeded", { rowCount: countRows(data.months) });
           saveState();
           render();
           updateSyncStatus("done");
@@ -2104,7 +2144,8 @@
         } else {
           loadFromCloud();
         }
-      } catch {
+      } catch (error) {
+        writeDiagnosticLog("github_load_failed", { error: error.message });
         loadFromCloud();
       }
     }
@@ -2115,9 +2156,16 @@
     }
 
     async function loadFromCloud() {
-      if (!settings.masterKey || !settings.binId || !navigator.onLine) return;
+      if (!settings.masterKey || !settings.binId || !navigator.onLine) {
+        writeDiagnosticLog("cloud_load_skipped", {
+          hasCloudConfig: Boolean(settings.masterKey && settings.binId),
+          online: navigator.onLine
+        });
+        return;
+      }
 
       try {
+        writeDiagnosticLog("cloud_load_started");
         updateSyncStatus("syncing");
         const res = await fetch(`https://api.jsonbin.io/v3/b/${settings.binId}/latest`, {
           headers: {
@@ -2125,7 +2173,7 @@
           }
         });
 
-        if (!res.ok) throw new Error("读取失败");
+        if (!res.ok) throw new Error(`读取失败 (${res.status})`);
 
         const data = await res.json();
 
@@ -2134,6 +2182,7 @@
           const cloudTotal = Object.values(data.record.months || {}).reduce((s, arr) => s + (arr || []).length, 0);
           const localTotal = Object.values(state.months || {}).reduce((s, arr) => s + (arr || []).length, 0);
           if (cloudTotal === 0 && localTotal > 0) {
+            writeDiagnosticLog("cloud_empty_preserved_local", { cloudTotal, localTotal });
             updateSyncStatus("done");
             // 把本地数据推回云端修复
             syncToCloud(true);
@@ -2156,39 +2205,51 @@
           }
 
           cloudLoaded = true;
+          writeDiagnosticLog("cloud_load_succeeded", { cloudTotal, localTotal });
           saveState();
           render();
           updateSyncStatus("done");
           toast("已同步云端数据");
         }
-      } catch {
+      } catch (error) {
+        writeDiagnosticLog("cloud_load_failed", { error: error.message });
         updateSyncStatus("error");
       }
     }
 
     async function syncToCloud(force) {
-      if (isSyncing) return;
+      if (isSyncing) {
+        writeDiagnosticLog("cloud_sync_skipped", { reason: "already_syncing" });
+        return;
+      }
       // 防止空数据覆盖云端：云端还没拉过且本地没有已保存的数据时禁止上传
       if (!cloudLoaded && !localStorage.getItem(STORAGE_KEY) && !localStorage.getItem(OLD_STORAGE_KEY)) {
         console.log("sync blocked: cloud not loaded yet, local data is empty");
+        writeDiagnosticLog("cloud_sync_skipped", { reason: "empty_local_state" });
         return;
       }
       if (!settings.masterKey || !settings.binId) {
+        writeDiagnosticLog("cloud_sync_skipped", { reason: "missing_cloud_config" });
         updateSyncStatus("local");
         return;
       }
 
       if (!navigator.onLine) {
+        writeDiagnosticLog("cloud_sync_skipped", { reason: "offline" });
         settings.pendingSync = true;
         saveSettings();
         updateSyncStatus("offline");
         return;
       }
 
-      if (!settings.pendingSync && !force) return;
+      if (!settings.pendingSync && !force) {
+        writeDiagnosticLog("cloud_sync_skipped", { reason: "no_pending_changes" });
+        return;
+      }
 
       try {
         isSyncing = true;
+        writeDiagnosticLog("cloud_sync_started", { force: Boolean(force), rowCount: countRows(state.months) });
         updateSyncStatus("syncing");
 
         const encryptedSecret = await encryptSettings(settings);
@@ -2205,15 +2266,17 @@
           body: JSON.stringify({ ...state, _settings: safeSettings })
         });
 
-        if (!res.ok) throw new Error("同步失败");
+        if (!res.ok) throw new Error(`同步失败 (${res.status})`);
 
         settings.pendingSync = false;
         saveSettings();
+        writeDiagnosticLog("cloud_sync_succeeded");
         updateSyncStatus("done");
         toast("已同步");
-      } catch {
+      } catch (error) {
         settings.pendingSync = true;
         saveSettings();
+        writeDiagnosticLog("cloud_sync_failed", { error: error.message });
         updateSyncStatus("error");
       } finally {
         isSyncing = false;
@@ -2247,6 +2310,58 @@
       settings.theme = els.themeSelect.value;
       settings.fontSize = els.fontSize.value;
       saveSettings();
+    }
+
+    function countRows(months) {
+      return Object.values(months || {}).reduce((total, rows) => total + (rows || []).length, 0);
+    }
+
+    function writeDiagnosticLog(event, details = {}) {
+      // 日志只保存事件与非敏感状态，绝不记录密钥、Bin ID、接口请求内容或聊天文本。
+      try {
+        const raw = localStorage.getItem(DIAGNOSTIC_LOG_KEY);
+        const entries = raw ? JSON.parse(raw) : [];
+        entries.push({ time: new Date().toISOString(), event, details });
+        localStorage.setItem(DIAGNOSTIC_LOG_KEY, JSON.stringify(entries.slice(-DIAGNOSTIC_LOG_LIMIT)));
+      } catch (error) {
+        console.warn("Unable to write diagnostic log", error);
+      }
+    }
+
+    async function exportDiagnosticLog() {
+      let entries = [];
+      try {
+        entries = JSON.parse(localStorage.getItem(DIAGNOSTIC_LOG_KEY) || "[]");
+      } catch {
+        entries = [{ time: new Date().toISOString(), event: "log_read_failed", details: {} }];
+      }
+
+      const report = {
+        exportedAt: new Date().toISOString(),
+        app: "PR TRACKER v2",
+        note: "不包含 API Key、Master Key、Bin ID、聊天内容或合作数据。",
+        currentState: {
+          online: navigator.onLine,
+          rowCount: countRows(state.months),
+          hasSavedConfiguration: hasSavedConfiguration(settings),
+          hasSettingsBackup: hasSavedConfiguration(readSettings(SETTINGS_BACKUP_KEY)),
+          pendingSync: Boolean(settings.pendingSync)
+        },
+        entries
+      };
+
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(report, null, 2));
+        toast("诊断日志已复制，可直接发给排查人员");
+      } catch {
+        const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `pr-tracker-diagnostic-${new Date().toISOString().slice(0, 10)}.json`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        toast("诊断日志已下载");
+      }
     }
 
     function applySettings() {
