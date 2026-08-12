@@ -1417,6 +1417,37 @@
       };
     }
 
+    function mergeStates(localState, cloudState) {
+      const localNormalized = normalizeState(localState);
+      const cloudNormalized = normalizeState(cloudState);
+      const mergedMonths = {};
+      const monthNames = new Set([
+        ...Object.keys(cloudNormalized.months || {}),
+        ...Object.keys(localNormalized.months || {})
+      ]);
+
+      monthNames.forEach((month) => {
+        const rowsById = new Map();
+        const cloudRows = cloudNormalized.months[month] || [];
+        const localRows = localNormalized.months[month] || [];
+
+        cloudRows.forEach((row) => rowsById.set(row.id, row));
+        localRows.forEach((row) => rowsById.set(row.id, row));
+
+        mergedMonths[month] = Array.from(rowsById.values());
+      });
+
+      const columnsByKey = new Map();
+      (cloudNormalized.columns || []).forEach((column) => columnsByKey.set(column.key, column));
+      (localNormalized.columns || []).forEach((column) => columnsByKey.set(column.key, column));
+
+      return normalizeState({
+        activeMonth: localNormalized.activeMonth || cloudNormalized.activeMonth,
+        columns: Array.from(columnsByKey.values()),
+        months: mergedMonths
+      });
+    }
+
     function mergeSettingsFromCloud(cloudSettings) {
       if (!cloudSettings) return false;
 
@@ -2189,7 +2220,7 @@
             return;
           }
 
-          state = normalizeState(data.record);
+          state = mergeStates(state, data.record);
 
           // 从云端恢复设置（优先保留本地非空值）
           if (data.record._settings) {
@@ -2205,7 +2236,11 @@
           }
 
           cloudLoaded = true;
-          writeDiagnosticLog("cloud_load_succeeded", { cloudTotal, localTotal });
+          writeDiagnosticLog("cloud_load_succeeded", {
+            cloudTotal,
+            localTotal,
+            mergedTotal: countRows(state.months)
+          });
           saveState();
           render();
           updateSyncStatus("done");
@@ -2215,6 +2250,38 @@
         writeDiagnosticLog("cloud_load_failed", { error: error.message });
         updateSyncStatus("error");
       }
+    }
+
+    async function mergeLatestCloudBeforeUpload() {
+      if (!settings.masterKey || !settings.binId || !navigator.onLine) return;
+
+      const res = await fetch(`https://api.jsonbin.io/v3/b/${settings.binId}/latest`, {
+        headers: {
+          "X-Master-Key": settings.masterKey
+        }
+      });
+
+      if (!res.ok) throw new Error(`读取云端失败 (${res.status})`);
+
+      const data = await res.json();
+      if (!data.record || !data.record.months) return;
+
+      const beforeTotal = countRows(state.months);
+      const cloudTotal = countRows(data.record.months);
+      state = mergeStates(state, data.record);
+
+      if (data.record._settings) {
+        const cloudSettings = { ...data.record._settings };
+        if (cloudSettings._encrypted) await decryptSettings(cloudSettings._encrypted, cloudSettings);
+        if (mergeSettingsFromCloud(cloudSettings)) saveSettings();
+      }
+
+      saveState();
+      writeDiagnosticLog("cloud_pre_upload_merge_succeeded", {
+        localBefore: beforeTotal,
+        cloudTotal,
+        mergedTotal: countRows(state.months)
+      });
     }
 
     async function syncToCloud(force) {
@@ -2251,6 +2318,8 @@
         isSyncing = true;
         writeDiagnosticLog("cloud_sync_started", { force: Boolean(force), rowCount: countRows(state.months) });
         updateSyncStatus("syncing");
+
+        await mergeLatestCloudBeforeUpload();
 
         const encryptedSecret = await encryptSettings(settings);
         const safeSettings = { ...settings };
