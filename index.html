@@ -964,6 +964,7 @@
     const defaultState = {
       activeMonth: "3月",
       columns: defaultColumns,
+      deletedRowIds: [],
       months: {
         "3月": [],
         "6月": []
@@ -1231,6 +1232,7 @@
         if (!deleteBtn) return;
 
         const id = deleteBtn.dataset.deleteId;
+        state.deletedRowIds = Array.from(new Set([...(state.deletedRowIds || []), id]));
         state.months[state.activeMonth] = state.months[state.activeMonth].filter((row) => row.id !== id);
         saveAndRender();
       });
@@ -1283,13 +1285,17 @@
       const source = input || {};
       const months = source.months || {};
       const normalizedMonths = {};
+      const deletedRowIds = Array.isArray(source.deletedRowIds) ? source.deletedRowIds : [];
+      const deletedRowIdSet = new Set(deletedRowIds);
 
       Object.keys(months).forEach((month) => {
-        normalizedMonths[month] = (months[month] || []).map((row) => {
-          const normalized = normalizeRow(row);
-          applyTypeRulesToRow(normalized);
-          return normalized;
-        });
+        normalizedMonths[month] = (months[month] || [])
+          .map((row) => {
+            const normalized = normalizeRow(row);
+            applyTypeRulesToRow(normalized);
+            return normalized;
+          })
+          .filter((row) => !deletedRowIdSet.has(row.id));
       });
 
       if (!normalizedMonths["3月"]) normalizedMonths["3月"] = [];
@@ -1312,6 +1318,7 @@
       return {
         activeMonth: source.activeMonth || "3月",
         columns,
+        deletedRowIds,
         months: normalizedMonths
       };
     }
@@ -1421,6 +1428,11 @@
       const localNormalized = normalizeState(localState);
       const cloudNormalized = normalizeState(cloudState);
       const mergedMonths = {};
+      const deletedRowIds = Array.from(new Set([
+        ...(cloudNormalized.deletedRowIds || []),
+        ...(localNormalized.deletedRowIds || [])
+      ]));
+      const deletedRowIdSet = new Set(deletedRowIds);
       const monthNames = new Set([
         ...Object.keys(cloudNormalized.months || {}),
         ...Object.keys(localNormalized.months || {})
@@ -1431,8 +1443,12 @@
         const cloudRows = cloudNormalized.months[month] || [];
         const localRows = localNormalized.months[month] || [];
 
-        cloudRows.forEach((row) => rowsById.set(row.id, row));
-        localRows.forEach((row) => rowsById.set(row.id, row));
+        cloudRows.forEach((row) => {
+          if (!deletedRowIdSet.has(row.id)) rowsById.set(row.id, row);
+        });
+        localRows.forEach((row) => {
+          if (!deletedRowIdSet.has(row.id)) rowsById.set(row.id, row);
+        });
 
         mergedMonths[month] = Array.from(rowsById.values());
       });
@@ -1444,6 +1460,7 @@
       return normalizeState({
         activeMonth: localNormalized.activeMonth || cloudNormalized.activeMonth,
         columns: Array.from(columnsByKey.values()),
+        deletedRowIds,
         months: mergedMonths
       });
     }
@@ -2056,8 +2073,16 @@
         note: cleanText(row.note)
       };
 
+      if (isLikelyChatSentence(normalized.brandName)) return null;
+
       applyTypeRulesToRow(normalized);
       return normalized;
+    }
+
+    function isLikelyChatSentence(value) {
+      const text = cleanText(value);
+      if (!text) return false;
+      return /这边|可以看|看看|上新款|上新了|宝[，,这]/.test(text) && text.length > 6;
     }
 
     function cleanText(value) {
