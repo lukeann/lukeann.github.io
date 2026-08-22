@@ -974,7 +974,9 @@
     let state = loadState();
     let settings = loadSettings();
     let syncTimer = null;
+    let cloudPollTimer = null;
     let isSyncing = false;
+    let isLoadingCloud = false;
     let cloudLoaded = false; // 防止空数据覆盖云端
     let lastAiDebugInfo = null;
     let pendingAiRows = [];
@@ -1197,6 +1199,11 @@
 
       window.addEventListener("offline", () => updateSyncStatus("offline"));
 
+      window.addEventListener("focus", () => loadFromCloud());
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) loadFromCloud();
+      });
+
       document.addEventListener("input", (event) => {
         const cell = event.target.closest("[data-row-id][data-field]");
         if (!cell) return;
@@ -1263,6 +1270,7 @@
       } else {
         loadFromCloud();
       }
+      startCloudPolling();
     }
 
     function cloneDefault(o) {
@@ -1447,7 +1455,9 @@
           if (!deletedRowIdSet.has(row.id)) rowsById.set(row.id, row);
         });
         localRows.forEach((row) => {
-          if (!deletedRowIdSet.has(row.id)) rowsById.set(row.id, row);
+          if (deletedRowIdSet.has(row.id)) return;
+          const cloudRow = rowsById.get(row.id);
+          rowsById.set(row.id, cloudRow ? mergeRows(cloudRow, row) : row);
         });
 
         mergedMonths[month] = Array.from(rowsById.values());
@@ -1463,6 +1473,55 @@
         deletedRowIds,
         months: mergedMonths
       });
+    }
+
+    function mergeRows(cloudRow, localRow) {
+      const cloudTimes = cloudRow._fieldUpdatedAt || {};
+      const localTimes = localRow._fieldUpdatedAt || {};
+      const merged = { id: localRow.id || cloudRow.id, _fieldUpdatedAt: {} };
+      const fieldNames = new Set([
+        ...Object.keys(cloudRow),
+        ...Object.keys(localRow)
+      ]);
+
+      fieldNames.forEach((field) => {
+        if (field === "id" || field === "_fieldUpdatedAt") return;
+
+        const cloudTime = Number(cloudTimes[field]) || 0;
+        const localTime = Number(localTimes[field]) || 0;
+        const cloudHasField = Object.prototype.hasOwnProperty.call(cloudRow, field);
+        const localHasField = Object.prototype.hasOwnProperty.call(localRow, field);
+        // 旧数据没有修改时间时优先采用云端，防止旧本地缓存覆盖另一台设备的更新。
+        const useLocal = !cloudHasField || (localHasField && localTime > cloudTime);
+        merged[field] = useLocal ? localRow[field] : cloudRow[field];
+        const winnerTime = Math.max(cloudTime, localTime);
+        if (winnerTime) merged._fieldUpdatedAt[field] = winnerTime;
+      });
+
+      return merged;
+    }
+
+    function localChangesNeedUpload(localState, cloudState) {
+      const cloudNormalized = normalizeState(cloudState);
+      const localNormalized = normalizeState(localState);
+      const cloudDeleted = new Set(cloudNormalized.deletedRowIds || []);
+      if ((localNormalized.deletedRowIds || []).some((id) => !cloudDeleted.has(id))) return true;
+
+      for (const month of Object.keys(localNormalized.months || {})) {
+        const cloudRowsById = new Map((cloudNormalized.months[month] || []).map((row) => [row.id, row]));
+        for (const localRow of localNormalized.months[month] || []) {
+          const cloudRow = cloudRowsById.get(localRow.id);
+          if (!cloudRow) return true;
+
+          const localTimes = localRow._fieldUpdatedAt || {};
+          const cloudTimes = cloudRow._fieldUpdatedAt || {};
+          if (Object.keys(localTimes).some((field) => (Number(localTimes[field]) || 0) > (Number(cloudTimes[field]) || 0))) {
+            return true;
+          }
+        }
+      }
+
+      return false;
     }
 
     function mergeSettingsFromCloud(cloudSettings) {
@@ -1707,6 +1766,7 @@
         }
       });
 
+      touchRowFields(row, columns.map((column) => column.key));
       monthRows.push(row);
     }
 
@@ -1729,6 +1789,7 @@
       Object.keys(state.months).forEach((month) => {
         state.months[month].forEach((row) => {
           row[key] = "";
+          touchRowFields(row, [key]);
         });
       });
 
@@ -1757,11 +1818,25 @@
         .find((item) => item.id === id);
       if (!row) return;
 
+      const before = { ...row };
       row[field] = value;
 
       if (field === "cooperationType") {
         applyTypeRulesToRow(row);
       }
+
+      const changedFields = Object.keys(row).filter((key) =>
+        key !== "id" && key !== "_fieldUpdatedAt" && row[key] !== before[key]
+      );
+      touchRowFields(row, changedFields);
+    }
+
+    function touchRowFields(row, fields, timestamp = Date.now()) {
+      if (!row || !fields.length) return;
+      row._fieldUpdatedAt = { ...(row._fieldUpdatedAt || {}) };
+      fields.forEach((field) => {
+        if (field !== "id" && field !== "_fieldUpdatedAt") row._fieldUpdatedAt[field] = timestamp;
+      });
     }
 
     function readCellValue(cell) {
@@ -2076,6 +2151,7 @@
       if (isLikelyChatSentence(normalized.brandName)) return null;
 
       applyTypeRulesToRow(normalized);
+      touchRowFields(normalized, Object.keys(normalized));
       return normalized;
     }
 
@@ -2211,7 +2287,15 @@
       syncTimer = setTimeout(() => syncToCloud(false), 900);
     }
 
+    function startCloudPolling() {
+      if (cloudPollTimer || !settings.masterKey || !settings.binId) return;
+      cloudPollTimer = setInterval(() => {
+        if (!document.hidden) loadFromCloud();
+      }, 30000);
+    }
+
     async function loadFromCloud() {
+      if (isLoadingCloud || isSyncing) return;
       if (!settings.masterKey || !settings.binId || !navigator.onLine) {
         writeDiagnosticLog("cloud_load_skipped", {
           hasCloudConfig: Boolean(settings.masterKey && settings.binId),
@@ -2221,6 +2305,7 @@
       }
 
       try {
+        isLoadingCloud = true;
         writeDiagnosticLog("cloud_load_started");
         updateSyncStatus("syncing");
         const res = await fetch(`https://api.jsonbin.io/v3/b/${settings.binId}/latest`, {
@@ -2245,6 +2330,7 @@
             return;
           }
 
+          const localNeedsUpload = localChangesNeedUpload(state, data.record);
           state = mergeStates(state, data.record);
 
           // 从云端恢复设置（优先保留本地非空值）
@@ -2270,10 +2356,20 @@
           render();
           updateSyncStatus("done");
           toast("已同步云端数据");
+
+          // 另一台设备的更新已拉下后，如本机仍有更晚的字段修改，自动把合并结果回写云端。
+          if (localNeedsUpload) {
+            settings.pendingSync = true;
+            saveSettings();
+            writeDiagnosticLog("cloud_merge_requires_upload");
+            scheduleSync();
+          }
         }
       } catch (error) {
         writeDiagnosticLog("cloud_load_failed", { error: error.message });
         updateSyncStatus("error");
+      } finally {
+        isLoadingCloud = false;
       }
     }
 
@@ -2312,6 +2408,12 @@
     async function syncToCloud(force) {
       if (isSyncing) {
         writeDiagnosticLog("cloud_sync_skipped", { reason: "already_syncing" });
+        return;
+      }
+      if (isLoadingCloud) {
+        writeDiagnosticLog("cloud_sync_delayed", { reason: "cloud_load_in_progress" });
+        clearTimeout(syncTimer);
+        syncTimer = setTimeout(() => syncToCloud(force), 500);
         return;
       }
       // 防止空数据覆盖云端：云端还没拉过且本地没有已保存的数据时禁止上传
@@ -2392,6 +2494,7 @@
       saveSettingsFromForm();
       els.settingsDrawer.classList.add("hidden");
       applySettings();
+      startCloudPolling();
       syncToCloud(true);
     }
 
