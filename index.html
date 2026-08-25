@@ -708,8 +708,8 @@
       </div>
 
       <div class="mini-stat">
-        <span>垫付未返</span>
-        <strong id="advanceUnreturned">0</strong>
+        <span>已拍摄</span>
+        <strong id="shotCount">0</strong>
       </div>
 
       <div class="mini-stat">
@@ -736,6 +736,7 @@
           <button id="addColumnBtn" class="btn secondary">加列</button>
           <button id="aiBtn" class="btn secondary">AI解析</button>
           <button id="addMonthBtn" class="btn secondary">加月份</button>
+          <button id="archivePublishedBtn" class="btn secondary">按发布日期归档</button>
           <button id="migrateBtn" class="btn danger hidden">迁移3月→6月</button>
           <button id="settingsBtn" class="btn secondary">设置</button>
         </div>
@@ -912,8 +913,12 @@
       { key: "price", label: "价格", type: "money" },
       { key: "taobaoAdvance", label: "淘宝垫付", type: "money" },
       { key: "principalReturned", label: "本金已返", type: "check" },
+      { key: "stylingScope", label: "搭配类型", type: "select", options: ["待确认", "一套", "单件·上衣", "单件·下装"] },
       { key: "styleRequirement", label: "款式/要求", type: "text" },
       { key: "deadline", label: "截止日期", type: "text" },
+      { key: "acceptedMonth", label: "接单月份", type: "text" },
+      { key: "publishDate", label: "发布日期", type: "text" },
+      { key: "incomeMonth", label: "收入月份", type: "text" },
       { key: "received", label: "已收到", type: "check" },
       { key: "shot", label: "已拍摄", type: "check" },
       { key: "published", label: "已发布", type: "check" },
@@ -999,13 +1004,14 @@
       totalDeals: document.getElementById("totalDeals"),
       pendingPublish: document.getElementById("pendingPublish"),
       pendingReturn: document.getElementById("pendingReturn"),
-      advanceUnreturned: document.getElementById("advanceUnreturned"),
+      shotCount: document.getElementById("shotCount"),
       exchangeUnsold: document.getElementById("exchangeUnsold"),
       completedCount: document.getElementById("completedCount"),
       addRowBtn: document.getElementById("addRowBtn"),
       addColumnBtn: document.getElementById("addColumnBtn"),
       aiBtn: document.getElementById("aiBtn"),
       addMonthBtn: document.getElementById("addMonthBtn"),
+      archivePublishedBtn: document.getElementById("archivePublishedBtn"),
       migrateBtn: document.getElementById("migrateBtn"),
       settingsBtn: document.getElementById("settingsBtn"),
       aiDrawer: document.getElementById("aiDrawer"),
@@ -1079,6 +1085,7 @@
       els.closeSettingsBtn.addEventListener("click", closeSettings);
 
       els.addMonthBtn.addEventListener("click", addMonth);
+      els.archivePublishedBtn.addEventListener("click", archivePublishedRows);
 
       els.typeFilter.addEventListener("change", () => {
         typeFilterValue = els.typeFilter.value;
@@ -1089,6 +1096,11 @@
         if (!confirm("将3月全部数据迁移到6月？3月将被清空。")) return;
         const mar = state.months["3月"] || [];
         const jun = state.months["6月"] || [];
+        mar.forEach((row) => {
+          if (!row.acceptedMonth) row.acceptedMonth = "3月";
+          row.incomeMonth = "6月";
+          touchRowFields(row, ["acceptedMonth", "incomeMonth"]);
+        });
         state.months["6月"] = [...jun, ...mar];
         state.months["3月"] = [];
         state.activeMonth = "6月";
@@ -1149,6 +1161,11 @@
         }
 
         const count = pendingAiRows.length;
+        pendingAiRows.forEach((row) => {
+          if (!row.acceptedMonth) row.acceptedMonth = state.activeMonth;
+          if (!row.incomeMonth) row.incomeMonth = state.activeMonth;
+          touchRowFields(row, ["acceptedMonth", "incomeMonth"]);
+        });
         state.months[state.activeMonth].push(...pendingAiRows);
         pendingAiRows = [];
         els.chatInput.value = "";
@@ -1240,7 +1257,9 @@
 
         const id = deleteBtn.dataset.deleteId;
         state.deletedRowIds = Array.from(new Set([...(state.deletedRowIds || []), id]));
-        state.months[state.activeMonth] = state.months[state.activeMonth].filter((row) => row.id !== id);
+        Object.keys(state.months).forEach((month) => {
+          state.months[month] = state.months[month].filter((row) => row.id !== id);
+        });
         saveAndRender();
       });
     }
@@ -1300,6 +1319,9 @@
         normalizedMonths[month] = (months[month] || [])
           .map((row) => {
             const normalized = normalizeRow(row);
+            // 旧数据原本按接单月存放：首次升级时保留该月份作为接单月和收入归属月。
+            if (!normalized.acceptedMonth) normalized.acceptedMonth = month;
+            if (!normalized.incomeMonth) normalized.incomeMonth = month;
             applyTypeRulesToRow(normalized);
             return normalized;
           })
@@ -1313,12 +1335,29 @@
       if (!localStorage.getItem("migrated_march_to_june") &&
           normalizedMonths["3月"].length > 0 &&
           normalizedMonths["6月"].length === 0) {
-        normalizedMonths["6月"] = [...normalizedMonths["3月"]];
+        normalizedMonths["6月"] = normalizedMonths["3月"].map((row) => ({
+          ...row,
+          acceptedMonth: row.acceptedMonth || "3月",
+          incomeMonth: "6月"
+        }));
         normalizedMonths["3月"] = [];
         localStorage.setItem("migrated_march_to_june", "true");
       }
 
-      const columns = source.columns && source.columns.length ? source.columns : defaultColumns;
+      const columns = source.columns && source.columns.length ? source.columns : cloneDefault(defaultColumns);
+      const ensureColumn = (column, beforeKey) => {
+        if (columns.some(c => c.key === column.key)) return;
+        const index = columns.findIndex(c => c.key === beforeKey);
+        columns.splice(index >= 0 ? index : columns.length, 0, column);
+      };
+      if (!columns.some(c => c.key === "stylingScope")) {
+        const requirementIndex = columns.findIndex(c => c.key === "styleRequirement");
+        const stylingColumn = { key: "stylingScope", label: "搭配类型", type: "select", options: ["待确认", "一套", "单件·上衣", "单件·下装"] };
+        columns.splice(requirementIndex >= 0 ? requirementIndex : columns.length, 0, stylingColumn);
+      }
+      ensureColumn({ key: "acceptedMonth", label: "接单月份", type: "text" }, "received");
+      ensureColumn({ key: "publishDate", label: "发布日期", type: "text" }, "received");
+      ensureColumn({ key: "incomeMonth", label: "收入月份", type: "text" }, "received");
       if (!columns.some(c => c.key === "note")) {
         columns.push({ key: "note", label: "备注", type: "text" });
       }
@@ -1349,6 +1388,7 @@
         });
 
         if (!normalized.cooperationType) normalized.cooperationType = "寄拍";
+        if (!normalized.stylingScope) normalized.stylingScope = "待确认";
 
         return {
           ...row,
@@ -1363,8 +1403,12 @@
         price: row.amount || row.price || "",
         taobaoAdvance: "",
         principalReturned: false,
+        stylingScope: "待确认",
         styleRequirement: row.project || row.note || "",
         deadline: row.date || "",
+        acceptedMonth: "",
+        publishDate: "",
+        incomeMonth: "",
         received: /已收到|已签收|收到/.test(row.status || row.note || ""),
         shot: /已拍摄|已拍|拍完/.test(row.status || row.note || ""),
         published: /已发布|已发笔记|已完成|完成/.test(row.status || row.note || ""),
@@ -1607,7 +1651,7 @@
       Object.keys(state.months).forEach((month) => {
         const btn = document.createElement("button");
         btn.className = `month-tab ${month === state.activeMonth ? "active" : ""}`;
-        btn.textContent = `${month} (${state.months[month].length})`;
+        btn.textContent = `${month} (${getRowsForIncomeMonth(month).length})`;
         btn.addEventListener("click", () => {
           state.activeMonth = month;
           saveState();
@@ -1618,7 +1662,7 @@
     }
 
     function renderTable() {
-      const allRows = state.months[state.activeMonth] || [];
+      const allRows = getRowsForIncomeMonth(state.activeMonth);
       const rows = typeFilterValue === "all" ? allRows : allRows.filter((r) => {
         const t = String(r.cooperationType || "");
         if (typeFilterValue === "paid") return t.includes("寄拍") || t.includes("送拍");
@@ -1705,7 +1749,7 @@
     }
 
     function renderStats() {
-      const rows = state.months[state.activeMonth] || [];
+      const rows = getRowsForIncomeMonth(state.activeMonth);
       const paidRows = rows.filter((r) => { const t = String(r.cooperationType || "").trim(); return !t || t.includes("寄拍") || t.includes("送拍") || t.includes("报备") || t.includes("现金"); });
       const exchangeRows = rows.filter((r) => String(r.cooperationType || "").trim().includes("置换"));
 
@@ -1717,7 +1761,7 @@
       const totalDeals = rows.length;
       const pendingPublish = rows.filter((r) => r.published !== true).length;
       const pendingReturn = rows.filter((r) => needsReturn(r) && r.returned !== true).length;
-      const advanceUnreturned = rows.filter((r) => toNumber(r.taobaoAdvance) > 0 && r.principalReturned !== true).length;
+      const shotCount = rows.filter((r) => r.shot === true).length;
       const exchangeUnsold = exchangeRows.filter((r) => r.sold !== true).length;
       const completedCount = rows.filter(isCompletedRow).length;
 
@@ -1727,7 +1771,7 @@
       els.totalDeals.textContent = totalDeals;
       els.pendingPublish.textContent = pendingPublish;
       els.pendingReturn.textContent = pendingReturn;
-      els.advanceUnreturned.textContent = advanceUnreturned;
+      els.shotCount.textContent = shotCount;
       els.exchangeUnsold.textContent = exchangeUnsold;
       els.completedCount.textContent = completedCount;
     }
@@ -1759,6 +1803,10 @@
       columns.forEach((column) => {
         if (column.key === "cooperationType") {
           row[column.key] = data[column.key] || "寄拍";
+        } else if (column.key === "stylingScope") {
+          row[column.key] = data[column.key] || "待确认";
+        } else if (column.key === "acceptedMonth" || column.key === "incomeMonth") {
+          row[column.key] = data[column.key] || state.activeMonth;
         } else if (column.type === "check") {
           row[column.key] = data[column.key] || false;
         } else {
@@ -1809,6 +1857,54 @@
 
       state.activeMonth = month;
       saveAndRender();
+    }
+
+    function getRowsForIncomeMonth(month) {
+      const rowsById = new Map();
+      Object.entries(state.months || {}).forEach(([sourceMonth, rows]) => {
+        (rows || []).forEach((row) => {
+          const incomeMonth = row.incomeMonth || sourceMonth;
+          if (incomeMonth === month) rowsById.set(row.id, row);
+        });
+      });
+      return Array.from(rowsById.values());
+    }
+
+    function archivePublishedRows() {
+      let movedCount = 0;
+      const monthsCreated = new Set();
+
+      Object.entries(state.months || {}).forEach(([sourceMonth, rows]) => {
+        (rows || []).forEach((row) => {
+          if (row.published !== true) return;
+          const targetMonth = monthFromPublishDate(row.publishDate);
+          if (!targetMonth || row.incomeMonth === targetMonth) return;
+
+          if (!row.acceptedMonth) row.acceptedMonth = sourceMonth;
+          row.incomeMonth = targetMonth;
+          touchRowFields(row, ["acceptedMonth", "incomeMonth"]);
+          if (!state.months[targetMonth]) {
+            state.months[targetMonth] = [];
+            monthsCreated.add(targetMonth);
+          }
+          movedCount += 1;
+        });
+      });
+
+      if (!movedCount) {
+        toast("没有可归档的记录：请先勾选“已发布”并填写发布日期");
+        return;
+      }
+
+      saveAndRender();
+      toast(`已按发布日期归档 ${movedCount} 条${monthsCreated.size ? "，并创建了新月份" : ""}`);
+    }
+
+    function monthFromPublishDate(value) {
+      const text = String(value || "").trim();
+      const match = text.match(/(?:^|\D)(\d{1,2})\s*(?:月|[./-])\s*\d{1,2}/);
+      const month = Number(match && match[1]);
+      return Number.isInteger(month) && month >= 1 && month <= 12 ? `${month}月` : "";
     }
 
     function updateRow(id, field, value) {
@@ -2038,8 +2134,10 @@
         "      \"price\": \"\",",
         "      \"taobaoAdvance\": \"\",",
         "      \"principalReturned\": false,",
+        "      \"stylingScope\": \"待确认\",",
         "      \"styleRequirement\": \"\",",
         "      \"deadline\": \"\",",
+        "      \"publishDate\": \"\",",
         "      \"received\": false,",
         "      \"shot\": false,",
         "      \"published\": false,",
@@ -2054,6 +2152,8 @@
         "",
         "字段要求：",
         "- cooperationType 只能是：置换、寄拍、送拍、报备、现金、其他。",
+        "- stylingScope 只能是：一套、单件·上衣、单件·下装、待确认。明确为上下装/套装时填「一套」；只有上衣时填「单件·上衣」；只有裤子、裙子等下装时填「单件·下装」；无法确定时填「待确认」。",
+        "- publishDate 仅在明确已发布且能从聊天中确定日期时填写，格式为「9月10日」；否则留空。",
         "- price、taobaoAdvance、soldPrice 保留最终金额；如果是置换且无金额，price 可填「置换」。",
         "- principalReturned、received、shot、published、returned、sold、settled 使用 true、false 或 \"N/A\"。",
         "- 没有明确出现的信息不要编造；品牌名不明确时 brandName 留空。",
@@ -2136,8 +2236,12 @@
         price: cleanMoney(row.price),
         taobaoAdvance: cleanMoney(row.taobaoAdvance),
         principalReturned: Boolean(row.principalReturned),
+        stylingScope: normalizeStylingScope(row.stylingScope),
         styleRequirement: cleanText(row.styleRequirement),
         deadline: cleanText(row.deadline),
+        publishDate: cleanText(row.publishDate),
+        acceptedMonth: state.activeMonth,
+        incomeMonth: state.activeMonth,
         received: Boolean(row.received),
         shot: Boolean(row.shot),
         published: Boolean(row.published),
@@ -2204,8 +2308,12 @@
         price: amountMatch ? amountMatch[1] : "",
         taobaoAdvance: guessTaobaoAdvance(clean),
         principalReturned: /本金已返|已返本金|返本金|已返/.test(clean),
+        stylingScope: guessStylingScope(clean),
         styleRequirement: guessStyleRequirement(clean),
         deadline: dateMatch ? dateMatch[0] : "",
+        publishDate: "",
+        acceptedMonth: state.activeMonth,
+        incomeMonth: state.activeMonth,
         received: /已收到|收到货|收到了|已签收/.test(clean),
         shot: /已拍摄|拍完|已拍|拍好了/.test(clean),
         published: /已发布|已发笔记|已发|发布了/.test(clean),
@@ -2215,6 +2323,18 @@
         settled: /已结款|已结清|结清|已付款|已到账/.test(clean),
         note: clean
       };
+    }
+
+    function normalizeStylingScope(value) {
+      const allowed = ["一套", "单件·上衣", "单件·下装", "待确认"];
+      return allowed.includes(value) ? value : "待确认";
+    }
+
+    function guessStylingScope(text) {
+      if (/套装|一套|上下装|两件套|三件套/.test(text)) return "一套";
+      if (/裤子|半身裙|短裙|长裙|裙子|下装|短裤/.test(text)) return "单件·下装";
+      if (/上衣|衬衫|T恤|t恤|背心|外套|针织衫|卫衣|毛衣/.test(text)) return "单件·上衣";
+      return "待确认";
     }
 
     function guessName(line) {
