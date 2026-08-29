@@ -690,8 +690,8 @@
         <strong id="exchangeSold">¥0</strong>
       </div>
       <div class="mini-stat">
-        <span>总待收入</span>
-        <strong id="pendingIncome">¥0</strong>
+        <span>本月预计收入</span>
+        <strong id="projectedIncome">¥0</strong>
       </div>
     </section>
 
@@ -1017,7 +1017,7 @@
       totalIncome: document.getElementById("totalIncome"),
       paidSummary: document.getElementById("paidSummary"),
       exchangeSold: document.getElementById("exchangeSold"),
-      pendingIncome: document.getElementById("pendingIncome"),
+      projectedIncome: document.getElementById("projectedIncome"),
       totalDeals: document.getElementById("totalDeals"),
       pendingPublish: document.getElementById("pendingPublish"),
       pendingReturn: document.getElementById("pendingReturn"),
@@ -1816,6 +1816,7 @@
       const totalIncome = paidSettled + soldIncome + otherSettledIncome;
       const pendingIncome = paidRows.reduce((sum, r) => sum + (r.settled === true ? 0 : toNumber(r.price)), 0)
         + otherIncomeRows.reduce((sum, r) => sum + (r.settled === true ? 0 : toNumber(r.price)), 0);
+      const projectedIncome = totalIncome + pendingIncome;
 
       const totalDeals = rows.length;
       const pendingPublish = clothingRows.filter((r) => r.published !== true).length;
@@ -1828,7 +1829,7 @@
       els.totalIncome.textContent = formatMoney(totalIncome);
       els.paidSummary.textContent = formatMoney(paidSettled) + " / " + formatMoney(paidIncome);
       els.exchangeSold.textContent = formatMoney(soldIncome);
-      els.pendingIncome.textContent = formatMoney(pendingIncome);
+      els.projectedIncome.textContent = formatMoney(projectedIncome);
       els.totalDeals.textContent = totalDeals;
       els.pendingPublish.textContent = pendingPublish;
       els.pendingReturn.textContent = pendingReturn;
