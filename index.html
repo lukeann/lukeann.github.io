@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PR TRACKER v2</title>
+  <title>自由职业收入台</title>
   <style>
     :root {
       --bg: #f7f9fc;
@@ -653,7 +653,7 @@
   <section id="login" class="login">
     <div class="login-card">
       <h1>访问验证 v3</h1>
-      <p>请输入密码访问 PR TRACKER</p>
+      <p>请输入密码访问自由职业收入台</p>
       <div class="field">
         <label for="passwordInput">密码</label>
         <input id="passwordInput" class="input" type="password" placeholder="输入密码" />
@@ -665,8 +665,8 @@
   <main id="app" class="app hidden">
     <header class="topbar">
       <div class="brand">
-        <h1>PR TRACKER</h1>
-        <p>小红书合作跟进 · 猪猪虾<br />佛山市禅城区同华西路9号 · 18485667303</p>
+        <h1>自由职业收入台</h1>
+        <p>服装拍摄 · 其他收入 · 月度归档</p>
       </div>
       <div id="syncStatus" class="sync-pill">
         <i class="dot"></i>
@@ -2229,8 +2229,8 @@
 
     function buildAIParserSystemPrompt() {
       return [
-        "你是一个小红书 PR 合作跟进表的数据整理助手。",
-        "请阅读用户粘贴的微信聊天记录，理解完整上下文，并把最终确认的合作信息整理成 JSON。",
+        "你是一个自由职业收入台的数据整理助手。",
+        "请阅读用户粘贴的微信聊天记录，理解完整上下文，并把最终确认的服装合作或其他收入信息整理成 JSON。",
         "你必须只返回 JSON，不要返回解释、Markdown 或多余文字。",
         "",
         "返回格式：",
@@ -2768,7 +2768,7 @@
 
       const report = {
         exportedAt: new Date().toISOString(),
-        app: "PR TRACKER v2",
+        app: "自由职业收入台",
         note: "不包含 API Key、Master Key、Bin ID、聊天内容或合作数据。",
         currentState: {
           online: navigator.onLine,
