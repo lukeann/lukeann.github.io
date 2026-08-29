@@ -265,7 +265,7 @@
 
     .summary-row {
       display: grid;
-      grid-template-columns: 1fr 1.4fr 1fr;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
       margin-bottom: 10px;
     }
@@ -689,6 +689,10 @@
         <span>置换卖出</span>
         <strong id="exchangeSold">¥0</strong>
       </div>
+      <div class="mini-stat">
+        <span>总待收入</span>
+        <strong id="pendingIncome">¥0</strong>
+      </div>
     </section>
 
     <section class="mini-dashboard">
@@ -1013,6 +1017,7 @@
       totalIncome: document.getElementById("totalIncome"),
       paidSummary: document.getElementById("paidSummary"),
       exchangeSold: document.getElementById("exchangeSold"),
+      pendingIncome: document.getElementById("pendingIncome"),
       totalDeals: document.getElementById("totalDeals"),
       pendingPublish: document.getElementById("pendingPublish"),
       pendingReturn: document.getElementById("pendingReturn"),
@@ -1809,6 +1814,8 @@
       const soldIncome = exchangeRows.reduce((sum, r) => sum + (r.sold === true ? toNumber(r.soldPrice) : 0), 0);
       const otherSettledIncome = otherIncomeRows.reduce((sum, r) => sum + (r.settled === true ? toNumber(r.price) : 0), 0);
       const totalIncome = paidSettled + soldIncome + otherSettledIncome;
+      const pendingIncome = paidRows.reduce((sum, r) => sum + (r.settled === true ? 0 : toNumber(r.price)), 0)
+        + otherIncomeRows.reduce((sum, r) => sum + (r.settled === true ? 0 : toNumber(r.price)), 0);
 
       const totalDeals = rows.length;
       const pendingPublish = clothingRows.filter((r) => r.published !== true).length;
@@ -1821,6 +1828,7 @@
       els.totalIncome.textContent = formatMoney(totalIncome);
       els.paidSummary.textContent = formatMoney(paidSettled) + " / " + formatMoney(paidIncome);
       els.exchangeSold.textContent = formatMoney(soldIncome);
+      els.pendingIncome.textContent = formatMoney(pendingIncome);
       els.totalDeals.textContent = totalDeals;
       els.pendingPublish.textContent = pendingPublish;
       els.pendingReturn.textContent = pendingReturn;
