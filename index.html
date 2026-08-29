@@ -693,7 +693,7 @@
 
     <section class="mini-dashboard">
       <div class="mini-stat">
-        <span>总合作数</span>
+        <span>总记录数</span>
         <strong id="totalDeals">0</strong>
       </div>
 
@@ -721,6 +721,11 @@
         <span>已完成</span>
         <strong id="completedCount">0</strong>
       </div>
+
+      <div class="mini-stat">
+        <span>其他待收入</span>
+        <strong id="otherPendingIncome">0</strong>
+      </div>
     </section>
 
     <section class="panel">
@@ -730,6 +735,7 @@
           <option value="all">全部</option>
           <option value="paid">寄拍/送拍</option>
           <option value="exchange">置换</option>
+          <option value="otherIncome">其他收入</option>
         </select>
         <div class="actions">
           <button id="addRowBtn" class="btn">加行</button>
@@ -909,7 +915,8 @@
     };
 
     const defaultColumns = [
-      { key: "brandName", label: "品牌名称", type: "text" },
+      { key: "brandName", label: "品牌/项目", type: "text" },
+      { key: "incomeCategory", label: "收入类别", type: "select", options: ["服装拍摄", "其他收入"] },
       { key: "cooperationType", label: "合作方式", type: "select", options: ["寄拍", "置换", "送拍", "报备", "现金", "其他"] },
       { key: "price", label: "价格", type: "money" },
       { key: "taobaoAdvance", label: "淘宝垫付", type: "money" },
@@ -940,6 +947,9 @@
     };
 
     function isFieldNotApplicable(row, fieldKey) {
+      if (row.incomeCategory === "其他收入") {
+        return !["brandName", "incomeCategory", "price", "incomeMonth", "settled", "note"].includes(fieldKey);
+      }
       const type = row.cooperationType || "";
       const config = fieldApplicabilityByType[type];
       if (!config) return false;
@@ -1009,6 +1019,7 @@
       shotCount: document.getElementById("shotCount"),
       exchangeUnsold: document.getElementById("exchangeUnsold"),
       completedCount: document.getElementById("completedCount"),
+      otherPendingIncome: document.getElementById("otherPendingIncome"),
       addRowBtn: document.getElementById("addRowBtn"),
       addColumnBtn: document.getElementById("addColumnBtn"),
       aiBtn: document.getElementById("aiBtn"),
@@ -1376,6 +1387,7 @@
         const index = columns.findIndex(c => c.key === beforeKey);
         columns.splice(index >= 0 ? index : columns.length, 0, column);
       };
+      ensureColumn({ key: "incomeCategory", label: "收入类别", type: "select", options: ["服装拍摄", "其他收入"] }, "cooperationType");
       if (!columns.some(c => c.key === "stylingScope")) {
         const requirementIndex = columns.findIndex(c => c.key === "styleRequirement");
         const stylingColumn = { key: "stylingScope", label: "搭配类型", type: "select", options: ["待确认", "一套", "单件·上衣", "单件·下装"] };
@@ -1414,6 +1426,7 @@
         });
 
         if (!normalized.cooperationType) normalized.cooperationType = "寄拍";
+        if (!normalized.incomeCategory) normalized.incomeCategory = "服装拍摄";
         if (!normalized.stylingScope) normalized.stylingScope = "待确认";
 
         return {
@@ -1425,6 +1438,7 @@
       return {
         id: row.id || createId(),
         brandName: row.name || row.brand || row.blogger || "",
+        incomeCategory: "服装拍摄",
         cooperationType: row.type || "寄拍",
         price: row.amount || row.price || "",
         taobaoAdvance: "",
@@ -1693,6 +1707,7 @@
         const t = String(r.cooperationType || "");
         if (typeFilterValue === "paid") return t.includes("寄拍") || t.includes("送拍");
         if (typeFilterValue === "exchange") return t.includes("置换");
+        if (typeFilterValue === "otherIncome") return r.incomeCategory === "其他收入";
         return true;
       });
       const columns = state.columns || defaultColumns;
@@ -1784,20 +1799,24 @@
 
     function renderStats() {
       const rows = getRowsForIncomeMonth(state.activeMonth);
-      const paidRows = rows.filter((r) => { const t = String(r.cooperationType || "").trim(); return !t || t.includes("寄拍") || t.includes("送拍") || t.includes("报备") || t.includes("现金"); });
-      const exchangeRows = rows.filter((r) => String(r.cooperationType || "").trim().includes("置换"));
+      const clothingRows = rows.filter((r) => r.incomeCategory !== "其他收入");
+      const otherIncomeRows = rows.filter((r) => r.incomeCategory === "其他收入");
+      const paidRows = clothingRows.filter((r) => { const t = String(r.cooperationType || "").trim(); return !t || t.includes("寄拍") || t.includes("送拍") || t.includes("报备") || t.includes("现金"); });
+      const exchangeRows = clothingRows.filter((r) => String(r.cooperationType || "").trim().includes("置换"));
 
       const paidIncome = paidRows.reduce((sum, r) => sum + toNumber(r.price), 0);
       const paidSettled = paidRows.reduce((sum, r) => sum + (r.settled === true ? toNumber(r.price) : 0), 0);
       const soldIncome = exchangeRows.reduce((sum, r) => sum + (r.sold === true ? toNumber(r.soldPrice) : 0), 0);
-      const totalIncome = paidSettled + soldIncome;
+      const otherSettledIncome = otherIncomeRows.reduce((sum, r) => sum + (r.settled === true ? toNumber(r.price) : 0), 0);
+      const totalIncome = paidSettled + soldIncome + otherSettledIncome;
 
       const totalDeals = rows.length;
-      const pendingPublish = rows.filter((r) => r.published !== true).length;
-      const pendingReturn = rows.filter((r) => needsReturn(r) && r.returned !== true).length;
-      const shotCount = rows.filter((r) => r.shot === true).length;
+      const pendingPublish = clothingRows.filter((r) => r.published !== true).length;
+      const pendingReturn = clothingRows.filter((r) => needsReturn(r) && r.returned !== true).length;
+      const shotCount = clothingRows.filter((r) => r.shot === true).length;
       const exchangeUnsold = exchangeRows.filter((r) => r.sold !== true).length;
       const completedCount = rows.filter(isCompletedRow).length;
+      const otherPendingIncome = otherIncomeRows.filter((r) => toNumber(r.price) > 0 && r.settled !== true).length;
 
       els.totalIncome.textContent = formatMoney(totalIncome);
       els.paidSummary.textContent = formatMoney(paidSettled) + " / " + formatMoney(paidIncome);
@@ -1808,6 +1827,7 @@
       els.shotCount.textContent = shotCount;
       els.exchangeUnsold.textContent = exchangeUnsold;
       els.completedCount.textContent = completedCount;
+      els.otherPendingIncome.textContent = otherPendingIncome;
     }
 
     function needsReturn(row) {
@@ -1818,6 +1838,7 @@
 
     function isCompletedRow(row) {
       if (!row) return false;
+      if (row.incomeCategory === "其他收入") return row.settled === true;
       const type = row.cooperationType;
       if (type === "置换") return row.published === true && row.sold === true;
       if (type === "寄拍") return row.published === true && row.returned === true && row.settled === true;
@@ -1837,6 +1858,8 @@
       columns.forEach((column) => {
         if (column.key === "cooperationType") {
           row[column.key] = data[column.key] || "寄拍";
+        } else if (column.key === "incomeCategory") {
+          row[column.key] = data[column.key] || "服装拍摄";
         } else if (column.key === "stylingScope") {
           row[column.key] = data[column.key] || "待确认";
         } else if (column.key === "acceptedMonth" || column.key === "incomeMonth") {
@@ -2215,6 +2238,7 @@
         "  \"rows\": [",
         "    {",
         "      \"brandName\": \"\",",
+        "      \"incomeCategory\": \"服装拍摄\",",
         "      \"cooperationType\": \"\",",
         "      \"price\": \"\",",
         "      \"taobaoAdvance\": \"\",",
@@ -2236,6 +2260,7 @@
         "}",
         "",
         "字段要求：",
+        "- incomeCategory 只能是：服装拍摄、其他收入。微信 PR 合作填「服装拍摄」；无发布、寄回、拍摄流程的普通收入填「其他收入」。",
         "- cooperationType 只能是：置换、寄拍、送拍、报备、现金、其他。",
         "- stylingScope 只能是：一套、单件·上衣、单件·下装、待确认。明确为上下装/套装时填「一套」；只有上衣时填「单件·上衣」；只有裤子、裙子等下装时填「单件·下装」；无法确定时填「待确认」。",
         "- publishDate 仅在明确已发布且能从聊天中确定日期时填写，格式为「9月10日」；否则留空。",
@@ -2313,10 +2338,12 @@
       const cooperationType = cooperationTypes.includes(row.cooperationType)
         ? row.cooperationType
         : "其他";
+      const incomeCategory = row.incomeCategory === "其他收入" ? "其他收入" : "服装拍摄";
 
       const normalized = {
         id: createId(),
         brandName: cleanText(row.brandName),
+        incomeCategory,
         cooperationType,
         price: cleanMoney(row.price),
         taobaoAdvance: cleanMoney(row.taobaoAdvance),
@@ -2389,6 +2416,7 @@
       return {
         id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
         brandName: name,
+        incomeCategory: "服装拍摄",
         cooperationType: type,
         price: amountMatch ? amountMatch[1] : "",
         taobaoAdvance: guessTaobaoAdvance(clean),
