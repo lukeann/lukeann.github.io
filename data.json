@@ -1,5 +1,5 @@
 {
-  "activeMonth": "10月",
+  "activeMonth": "9月",
   "columns": [
     {
       "key": "brandName",
@@ -2807,7 +2807,7 @@
           "acceptedMonth": 1789020557981,
           "publishDate": 1789020557981,
           "incomeMonth": 1789020557981,
-          "received": 1789020557981,
+          "received": 1790227378873,
           "shot": 1789020557981,
           "published": 1789020557981,
           "returned": 1789020557981,
@@ -2828,7 +2828,7 @@
         "acceptedMonth": "10月",
         "publishDate": "",
         "incomeMonth": "10月",
-        "received": false,
+        "received": true,
         "shot": false,
         "published": false,
         "returned": false,
