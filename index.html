@@ -815,13 +815,13 @@
     <h3>设置</h3>
 
     <div class="field">
-      <label for="masterKey">JSONBin Master Key</label>
-      <input id="masterKey" class="input" type="password" placeholder="X-Master-Key" />
+      <label for="ghToken">GitHub 同步令牌</label>
+      <input id="ghToken" class="input" type="password" placeholder="github_pat_..." autocomplete="off" />
     </div>
 
     <div class="field">
-      <label for="binId">JSONBin Bin ID</label>
-      <input id="binId" class="input" placeholder="Bin ID" />
+      <label for="ghRepo">GitHub 数据仓库</label>
+      <input id="ghRepo" class="input" placeholder="用户名/仓库名" />
     </div>
 
     <div class="field">
@@ -860,7 +860,7 @@
     </div>
 
     <p class="footer-note">
-      使用 JSONBin.io 时，请先创建一个 Bin，再填入 Master Key 和 Bin ID。保存后会自动上传当前数据。
+      同步令牌只保存在当前浏览器，不会写入 GitHub。手机和电脑需要分别设置一次。
     </p>
   </section>
 
@@ -868,35 +868,6 @@
 
   <script>
     const PASSWORD = "200366";
-    const SECRET_FIELDS = ["masterKey", "binId", "aiApiKey", "ghToken"];
-
-    async function encryptSettings(settingsObj) {
-      const plain = JSON.stringify(SECRET_FIELDS.reduce((o, k) => { if (settingsObj[k]) o[k] = settingsObj[k]; return o; }, {}));
-      if (!plain || plain === "{}") return "";
-      const enc = new TextEncoder();
-      const km = await crypto.subtle.importKey("raw", enc.encode(PASSWORD), "PBKDF2", false, ["deriveKey"]);
-      const salt = crypto.getRandomValues(new Uint8Array(16));
-      const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" }, km, { name: "AES-GCM", length: 256 }, false, ["encrypt"]);
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plain));
-      const combined = new Uint8Array(salt.length + iv.length + ct.byteLength);
-      combined.set(salt); combined.set(iv, salt.length); combined.set(new Uint8Array(ct), salt.length + iv.length);
-      return btoa(String.fromCharCode(...combined));
-    }
-
-    async function decryptSettings(ciphertext, settingsObj) {
-      if (!ciphertext) return;
-      try {
-        const enc = new TextEncoder();
-        const combined = Uint8Array.from(atob(ciphertext), c => c.charCodeAt(0));
-        const salt = combined.slice(0, 16), iv = combined.slice(16, 28), data = combined.slice(28);
-        const km = await crypto.subtle.importKey("raw", enc.encode(PASSWORD), "PBKDF2", false, ["deriveKey"]);
-        const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" }, km, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
-        const dec = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, data);
-        const parsed = JSON.parse(new TextDecoder().decode(dec));
-        Object.keys(parsed).forEach(k => { settingsObj[k] = parsed[k]; });
-      } catch(e) { console.log("decrypt failed, using plain settings"); }
-    }
 
     const STORAGE_KEY = "pr_tracker_v2";
     const SETTINGS_KEY = "pr_tracker_settings_v2";
@@ -906,8 +877,6 @@
     const OLD_STORAGE_KEY = "pr_tracker";
     const OLD_SETTINGS_KEY = "pr_tracker_settings";
     const DEFAULT_SETTINGS = {
-      masterKey: "",
-      binId: "",
       aiApiUrl: "",
       aiApiKey: "",
       aiModel: "",
@@ -994,10 +963,10 @@
     let state = loadState();
     let settings = loadSettings();
     let syncTimer = null;
-    let cloudPollTimer = null;
+    let githubPollTimer = null;
     let isSyncing = false;
     let isLoadingCloud = false;
-    let cloudLoaded = false; // 防止空数据覆盖云端
+    let cloudLoaded = false; // 防止空数据覆盖 GitHub
     let lastAiDebugInfo = null;
     let pendingAiRows = [];
     let typeFilterValue = "all";
@@ -1046,8 +1015,8 @@
       aiDebugRequest: document.getElementById("aiDebugRequest"),
       copyAiDebugBtn: document.getElementById("copyAiDebugBtn"),
       settingsDrawer: document.getElementById("settingsDrawer"),
-      masterKey: document.getElementById("masterKey"),
-      binId: document.getElementById("binId"),
+      ghToken: document.getElementById("ghToken"),
+      ghRepo: document.getElementById("ghRepo"),
       aiApiUrl: document.getElementById("aiApiUrl"),
       aiApiKey: document.getElementById("aiApiKey"),
       aiModel: document.getElementById("aiModel"),
@@ -1213,7 +1182,7 @@
 
       els.syncNowBtn.addEventListener("click", () => {
         saveSettingsFromForm();
-        syncToCloud(true);
+        syncToGitHub(true);
       });
       els.exportLogBtn.addEventListener("click", exportDiagnosticLog);
 
@@ -1231,14 +1200,14 @@
 
       window.addEventListener("online", () => {
         updateSyncStatus("online");
-        syncToCloud(true);
+        syncToGitHub(true);
       });
 
       window.addEventListener("offline", () => updateSyncStatus("offline"));
 
-      window.addEventListener("focus", () => loadFromCloud());
+      window.addEventListener("focus", () => loadFromGitHub());
       document.addEventListener("visibilitychange", () => {
-        if (!document.hidden) loadFromCloud();
+        if (!document.hidden) loadFromGitHub();
       });
 
       document.addEventListener("input", (event) => {
@@ -1322,16 +1291,8 @@
         cloudLoaded = true; // 本地有数据，允许同步
       }
       try { render(); } catch(e) { console.error(e); }
-      // 如果本地没有数据，从 GitHub 拉取
-      const totalRows = Object.values(state.months).reduce((s, arr) => s + (arr || []).length, 0);
-      if (totalRows === 0) {
-        loadFromGitHub().then((loaded) => {
-          if (!loaded) loadFromCloud();
-        });
-      } else {
-        loadFromCloud();
-      }
-      startCloudPolling();
+      loadFromGitHub();
+      startGitHubPolling();
     }
 
     function cloneDefault(o) {
@@ -1505,17 +1466,19 @@
 
     function hasSavedConfiguration(value) {
       if (!value) return false;
-      return ["masterKey", "binId", "aiApiUrl", "aiApiKey", "aiModel", "ghToken"]
+      return ["aiApiUrl", "aiApiKey", "aiModel", "ghToken"]
         .some((key) => String(value[key] || "").trim() !== "");
     }
 
     function normalizeSettings(input) {
       const source = input || {};
       return {
-        ...cloneDefault(DEFAULT_SETTINGS),
-        ...source,
+        aiApiUrl: source.aiApiUrl || "",
+        aiApiKey: source.aiApiKey || "",
+        aiModel: source.aiModel || "",
         theme: source.theme || DEFAULT_SETTINGS.theme,
         fontSize: Number(source.fontSize) || DEFAULT_SETTINGS.fontSize,
+        ghToken: source.ghToken || "",
         ghRepo: source.ghRepo || DEFAULT_SETTINGS.ghRepo,
         pendingSync: Boolean(source.pendingSync)
       };
@@ -1611,36 +1574,6 @@
       }
 
       return false;
-    }
-
-    function mergeSettingsFromCloud(cloudSettings) {
-      if (!cloudSettings) return false;
-
-      const previous = JSON.stringify(settings);
-      const merged = normalizeSettings({
-        ...cloudSettings,
-        ...settings,
-        pendingSync: settings.pendingSync || cloudSettings.pendingSync
-      });
-
-      Object.keys(DEFAULT_SETTINGS).forEach((key) => {
-        const localValue = settings[key];
-        const cloudValue = cloudSettings[key];
-        const defaultValue = DEFAULT_SETTINGS[key];
-        const localHasValue = localValue !== "" && localValue !== undefined && localValue !== null;
-        const cloudHasValue = cloudValue !== "" && cloudValue !== undefined && cloudValue !== null;
-
-        if (!localHasValue && cloudHasValue) {
-          merged[key] = cloudValue;
-        } else if (key === "theme" && (!localValue || localValue === defaultValue) && cloudHasValue) {
-          merged[key] = cloudValue;
-        } else if (key === "fontSize" && (!localValue || Number(localValue) === defaultValue) && cloudHasValue) {
-          merged[key] = cloudValue;
-        }
-      });
-
-      settings = normalizeSettings(merged);
-      return previous !== JSON.stringify(settings);
     }
 
     function saveState() {
@@ -2482,248 +2415,187 @@
       return match ? match[1].trim() : "";
     }
 
-    async function loadFromGitHub() {
-      try {
-        writeDiagnosticLog("github_load_started");
-        const res = await fetch(
-          "https://raw.githubusercontent.com/lukeann/lukeann.github.io/master/data.json"
-        );
-        if (!res.ok) {
-          writeDiagnosticLog("github_load_failed", { status: res.status });
-          loadFromCloud();
-          return;
-        }
-
-        const data = await res.json();
-        if (data && data.months) {
-          state = normalizeState(data);
-
-          if (data._settings) {
-            const cloudSettings = { ...data._settings };
-            if (cloudSettings._encrypted) await decryptSettings(cloudSettings._encrypted, cloudSettings);
-            if (mergeSettingsFromCloud(cloudSettings)) saveSettings();
-          }
-
-          cloudLoaded = true;
-          writeDiagnosticLog("github_load_succeeded", { rowCount: countRows(data.months) });
-          saveState();
-          render();
-          updateSyncStatus("done");
-          toast("已从 GitHub 加载数据");
-
-          // 再从云端拉取最新设置（数据已有保护，不会被空数据覆盖）
-          if (settings.masterKey && settings.binId) {
-            loadFromCloud();
-          }
-        } else {
-          loadFromCloud();
-        }
-      } catch (error) {
-        writeDiagnosticLog("github_load_failed", { error: error.message });
-        loadFromCloud();
+    function githubApiUrl() {
+      const repo = String(settings.ghRepo || "").trim();
+      if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) {
+        throw new Error("GitHub 仓库格式不正确");
       }
+      const [owner, name] = repo.split("/").map(encodeURIComponent);
+      return `https://api.github.com/repos/${owner}/${name}/contents/data.json`;
     }
 
-    function scheduleSync() {
-      clearTimeout(syncTimer);
-      syncTimer = setTimeout(() => syncToCloud(false), 900);
+    function githubHeaders(includeContentType = false) {
+      const headers = {
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+      };
+      if (settings.ghToken) headers.Authorization = `Bearer ${settings.ghToken}`;
+      if (includeContentType) headers["Content-Type"] = "application/json";
+      return headers;
     }
 
-    function startCloudPolling() {
-      if (cloudPollTimer || !settings.masterKey || !settings.binId) return;
-      cloudPollTimer = setInterval(() => {
-        if (!document.hidden) loadFromCloud();
-      }, 30000);
+    function decodeBase64Utf8(value) {
+      const binary = atob(String(value || "").replace(/\s/g, ""));
+      return new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0)));
     }
 
-    async function loadFromCloud() {
-      if (isLoadingCloud || isSyncing) return;
-      if (!settings.masterKey || !settings.binId || !navigator.onLine) {
-        writeDiagnosticLog("cloud_load_skipped", {
-          hasCloudConfig: Boolean(settings.masterKey && settings.binId),
-          online: navigator.onLine
-        });
-        return;
+    function encodeBase64Utf8(value) {
+      const bytes = new TextEncoder().encode(value);
+      let binary = "";
+      for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+        binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+      }
+      return btoa(binary);
+    }
+
+    async function readGitHubData() {
+      const res = await fetch(`${githubApiUrl()}?t=${Date.now()}`, {
+        headers: githubHeaders(),
+        cache: "no-store"
+      });
+      if (!res.ok) throw new Error(`读取 GitHub 失败 (${res.status})`);
+
+      const file = await res.json();
+      const record = JSON.parse(decodeBase64Utf8(file.content));
+      if (!record || !record.months) throw new Error("GitHub 数据文件格式不正确");
+      return { record, sha: file.sha };
+    }
+
+    async function writeGitHubData(sha) {
+      return fetch(githubApiUrl(), {
+        method: "PUT",
+        headers: githubHeaders(true),
+        body: JSON.stringify({
+          message: "Update PR tracker data",
+          content: encodeBase64Utf8(JSON.stringify(state, null, 2)),
+          sha
+        })
+      });
+    }
+
+    async function loadFromGitHub() {
+      if (isLoadingCloud || isSyncing) return false;
+      if (!navigator.onLine) {
+        updateSyncStatus("offline");
+        return false;
       }
 
       try {
         isLoadingCloud = true;
-        writeDiagnosticLog("cloud_load_started");
+        writeDiagnosticLog("github_load_started");
         updateSyncStatus("syncing");
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${settings.binId}/latest`, {
-          headers: {
-            "X-Master-Key": settings.masterKey
-          }
+
+        const { record } = await readGitHubData();
+        const localTotal = countRows(state.months);
+        const remoteTotal = countRows(record.months);
+        const localNeedsUpload = localChangesNeedUpload(state, record);
+
+        state = mergeStates(state, record);
+        cloudLoaded = true;
+        saveState();
+        render();
+
+        writeDiagnosticLog("github_load_succeeded", {
+          localTotal,
+          remoteTotal,
+          mergedTotal: countRows(state.months)
         });
 
-        if (!res.ok) throw new Error(`读取失败 (${res.status})`);
-
-        const data = await res.json();
-
-        if (data.record && data.record.months) {
-          // 防止云端空数据覆盖本地数据
-          const cloudTotal = Object.values(data.record.months || {}).reduce((s, arr) => s + (arr || []).length, 0);
-          const localTotal = Object.values(state.months || {}).reduce((s, arr) => s + (arr || []).length, 0);
-          if (cloudTotal === 0 && localTotal > 0) {
-            writeDiagnosticLog("cloud_empty_preserved_local", { cloudTotal, localTotal });
-            updateSyncStatus("done");
-            // 把本地数据推回云端修复
-            syncToCloud(true);
-            return;
-          }
-
-          const localNeedsUpload = localChangesNeedUpload(state, data.record);
-          state = mergeStates(state, data.record);
-
-          // 从云端恢复设置（优先保留本地非空值）
-          if (data.record._settings) {
-            const cloudSettings = { ...data.record._settings };
-            if (cloudSettings._encrypted) await decryptSettings(cloudSettings._encrypted, cloudSettings);
-            if (mergeSettingsFromCloud(cloudSettings)) saveSettings();
-          }
-
-          // 如果本地有配置但云端没有，立即把本地设置推上云端
-          if ((settings.masterKey || settings.aiApiKey) &&
-              (!data.record._settings || (!data.record._settings.aiApiUrl && !data.record._settings.masterKey))) {
-            syncToCloud(true);
-          }
-
-          cloudLoaded = true;
-          writeDiagnosticLog("cloud_load_succeeded", {
-            cloudTotal,
-            localTotal,
-            mergedTotal: countRows(state.months)
-          });
-          saveState();
-          render();
-          updateSyncStatus("done");
-          toast("已同步云端数据");
-
-          // 另一台设备的更新已拉下后，如本机仍有更晚的字段修改，自动把合并结果回写云端。
-          if (localNeedsUpload) {
-            settings.pendingSync = true;
-            saveSettings();
-            writeDiagnosticLog("cloud_merge_requires_upload");
-            scheduleSync();
-          }
+        if (localNeedsUpload) {
+          settings.pendingSync = true;
+          saveSettings();
+          if (settings.ghToken) scheduleSync();
         }
+
+        updateSyncStatus(settings.ghToken ? "done" : "readonly");
+        return true;
       } catch (error) {
-        writeDiagnosticLog("cloud_load_failed", { error: error.message });
+        writeDiagnosticLog("github_load_failed", { error: error.message });
         updateSyncStatus("error");
+        return false;
       } finally {
         isLoadingCloud = false;
       }
     }
 
-    async function mergeLatestCloudBeforeUpload() {
-      if (!settings.masterKey || !settings.binId || !navigator.onLine) return;
-
-      const res = await fetch(`https://api.jsonbin.io/v3/b/${settings.binId}/latest`, {
-        headers: {
-          "X-Master-Key": settings.masterKey
-        }
-      });
-
-      if (!res.ok) throw new Error(`读取云端失败 (${res.status})`);
-
-      const data = await res.json();
-      if (!data.record || !data.record.months) return;
-
-      const beforeTotal = countRows(state.months);
-      const cloudTotal = countRows(data.record.months);
-      state = mergeStates(state, data.record);
-
-      if (data.record._settings) {
-        const cloudSettings = { ...data.record._settings };
-        if (cloudSettings._encrypted) await decryptSettings(cloudSettings._encrypted, cloudSettings);
-        if (mergeSettingsFromCloud(cloudSettings)) saveSettings();
-      }
-
-      saveState();
-      writeDiagnosticLog("cloud_pre_upload_merge_succeeded", {
-        localBefore: beforeTotal,
-        cloudTotal,
-        mergedTotal: countRows(state.months)
-      });
+    function scheduleSync() {
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => syncToGitHub(false), 4000);
     }
 
-    async function syncToCloud(force) {
+    function startGitHubPolling() {
+      if (githubPollTimer || !settings.ghToken) return;
+      githubPollTimer = setInterval(() => {
+        if (!document.hidden) loadFromGitHub();
+      }, 30000);
+    }
+
+    async function syncToGitHub(force) {
       if (isSyncing) {
-        writeDiagnosticLog("cloud_sync_skipped", { reason: "already_syncing" });
+        writeDiagnosticLog("github_sync_skipped", { reason: "already_syncing" });
         return;
       }
       if (isLoadingCloud) {
-        writeDiagnosticLog("cloud_sync_delayed", { reason: "cloud_load_in_progress" });
         clearTimeout(syncTimer);
-        syncTimer = setTimeout(() => syncToCloud(force), 500);
+        syncTimer = setTimeout(() => syncToGitHub(force), 500);
         return;
       }
-      // 防止空数据覆盖云端：云端还没拉过且本地没有已保存的数据时禁止上传
       if (!cloudLoaded && !localStorage.getItem(STORAGE_KEY) && !localStorage.getItem(OLD_STORAGE_KEY)) {
-        console.log("sync blocked: cloud not loaded yet, local data is empty");
-        writeDiagnosticLog("cloud_sync_skipped", { reason: "empty_local_state" });
+        writeDiagnosticLog("github_sync_skipped", { reason: "empty_local_state" });
         return;
       }
-      if (!settings.masterKey || !settings.binId) {
-        writeDiagnosticLog("cloud_sync_skipped", { reason: "missing_cloud_config" });
+      if (!settings.ghToken) {
+        writeDiagnosticLog("github_sync_skipped", { reason: "missing_token" });
         updateSyncStatus("local");
+        if (force) toast("请先在设置中填写 GitHub 同步令牌");
         return;
       }
-
       if (!navigator.onLine) {
-        writeDiagnosticLog("cloud_sync_skipped", { reason: "offline" });
         settings.pendingSync = true;
         saveSettings();
         updateSyncStatus("offline");
         return;
       }
-
-      if (!settings.pendingSync && !force) {
-        writeDiagnosticLog("cloud_sync_skipped", { reason: "no_pending_changes" });
-        return;
-      }
+      if (!settings.pendingSync && !force) return;
 
       try {
         isSyncing = true;
-        writeDiagnosticLog("cloud_sync_started", { force: Boolean(force), rowCount: countRows(state.months) });
+        writeDiagnosticLog("github_sync_started", { force: Boolean(force), rowCount: countRows(state.months) });
         updateSyncStatus("syncing");
 
-        await mergeLatestCloudBeforeUpload();
+        let remote = await readGitHubData();
+        state = mergeStates(state, remote.record);
+        saveState();
 
-        const encryptedSecret = await encryptSettings(settings);
-        const safeSettings = { ...settings };
-        SECRET_FIELDS.forEach(k => { safeSettings[k] = ""; });
-        if (encryptedSecret) safeSettings._encrypted = encryptedSecret;
+        let res = await writeGitHubData(remote.sha);
+        if (res.status === 409) {
+          remote = await readGitHubData();
+          state = mergeStates(state, remote.record);
+          saveState();
+          res = await writeGitHubData(remote.sha);
+        }
+        if (!res.ok) throw new Error(`写入 GitHub 失败 (${res.status})`);
 
-        const res = await fetch(`https://api.jsonbin.io/v3/b/${settings.binId}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Master-Key": settings.masterKey
-          },
-          body: JSON.stringify({ ...state, _settings: safeSettings })
-        });
-
-        if (!res.ok) throw new Error(`同步失败 (${res.status})`);
-
+        cloudLoaded = true;
         settings.pendingSync = false;
         saveSettings();
-        writeDiagnosticLog("cloud_sync_succeeded");
+        writeDiagnosticLog("github_sync_succeeded");
         updateSyncStatus("done");
-        toast("已同步");
+        toast("已同步到 GitHub");
       } catch (error) {
         settings.pendingSync = true;
         saveSettings();
-        writeDiagnosticLog("cloud_sync_failed", { error: error.message });
+        writeDiagnosticLog("github_sync_failed", { error: error.message });
         updateSyncStatus("error");
+        toast(error.message);
       } finally {
         isSyncing = false;
       }
     }
 
     function openSettings() {
-      els.masterKey.value = settings.masterKey || "";
-      els.binId.value = settings.binId || "";
+      els.ghToken.value = settings.ghToken || "";
+      els.ghRepo.value = settings.ghRepo || DEFAULT_SETTINGS.ghRepo;
       els.aiApiUrl.value = settings.aiApiUrl || "";
       els.aiApiKey.value = settings.aiApiKey || "";
       els.aiModel.value = settings.aiModel || "";
@@ -2736,13 +2608,13 @@
       saveSettingsFromForm();
       els.settingsDrawer.classList.add("hidden");
       applySettings();
-      startCloudPolling();
-      syncToCloud(true);
+      startGitHubPolling();
+      syncToGitHub(true);
     }
 
     function saveSettingsFromForm() {
-      settings.masterKey = els.masterKey.value.trim();
-      settings.binId = els.binId.value.trim();
+      settings.ghToken = els.ghToken.value.trim();
+      settings.ghRepo = els.ghRepo.value.trim() || DEFAULT_SETTINGS.ghRepo;
       settings.aiApiUrl = els.aiApiUrl.value.trim();
       settings.aiApiKey = els.aiApiKey.value.trim();
       settings.aiModel = els.aiModel.value.trim();
@@ -2756,7 +2628,7 @@
     }
 
     function writeDiagnosticLog(event, details = {}) {
-      // 日志只保存事件与非敏感状态，绝不记录密钥、Bin ID、接口请求内容或聊天文本。
+      // 日志只保存事件与非敏感状态，绝不记录令牌、接口请求内容或聊天文本。
       try {
         const raw = localStorage.getItem(DIAGNOSTIC_LOG_KEY);
         const entries = raw ? JSON.parse(raw) : [];
@@ -2825,13 +2697,14 @@
         online: "网络已恢复，准备同步",
         waiting: settings.pendingSync ? "有改动待同步" : "本地已保存",
         syncing: "正在同步",
-        done: "云端已同步",
-        local: "本地已保存，未配置云端",
+        done: "GitHub 已同步",
+        readonly: "GitHub 已读取，仅本地保存",
+        local: "本地已保存，未配置 GitHub",
         offline: "离线保存中",
         error: "同步失败，稍后重试"
       };
 
-      if (type === "done" || type === "local") dot.classList.add("ok");
+      if (type === "done" || type === "readonly" || type === "local") dot.classList.add("ok");
       if (type === "offline" || type === "error") dot.classList.add("offline");
 
       text.textContent = map[type] || "等待同步";
