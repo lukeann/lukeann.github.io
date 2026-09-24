@@ -1620,7 +1620,7 @@
         "_fieldUpdatedAt": {
           "shot": 1789748498503,
           "published": 1790132993066,
-          "returned": 1790213487632,
+          "returned": 1790242386596,
           "stylingScope": 1788016312401,
           "acceptedMonth": 1787996133202,
           "incomeMonth": 1787996133202
@@ -1635,7 +1635,7 @@
         "received": true,
         "shot": true,
         "published": true,
-        "returned": false,
+        "returned": true,
         "sold": "N/A",
         "soldPrice": "N/A",
         "settled": false,
