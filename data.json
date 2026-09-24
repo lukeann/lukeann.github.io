@@ -1,5 +1,5 @@
 {
-  "activeMonth": "9月",
+  "activeMonth": "10月",
   "columns": [
     {
       "key": "brandName",
@@ -1866,6 +1866,7 @@
         "id": "418ff6f1-4366-4920-a97e-bde7e9a28929",
         "_fieldUpdatedAt": {
           "received": 1787500693289,
+          "shot": 1790227361230,
           "settled": 1787996042307,
           "stylingScope": 1788016411277,
           "acceptedMonth": 1787996133202,
@@ -1879,7 +1880,7 @@
         "styleRequirement": "带合集，黑色短风衣，格子裤",
         "deadline": "9月内",
         "received": true,
-        "shot": false,
+        "shot": true,
         "published": false,
         "returned": false,
         "sold": "N/A",
