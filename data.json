@@ -2226,7 +2226,7 @@
           "returned": 1789306591510,
           "sold": 1787996708208,
           "soldPrice": 1787996708208,
-          "settled": 1787996708208,
+          "settled": 1790242148989,
           "note": 1787996708208
         },
         "brandName": "外贸小强哥",
@@ -2246,7 +2246,7 @@
         "returned": true,
         "sold": "N/A",
         "soldPrice": "N/A",
-        "settled": false,
+        "settled": true,
         "note": "",
         "incomeCategory": "服装拍摄"
       },
