@@ -1840,6 +1840,7 @@
           "shot": 1789748504826,
           "published": 1790213482889,
           "returned": 1790242393968,
+          "settled": 1790476117653,
           "stylingScope": 1788016409087,
           "acceptedMonth": 1787996133202,
           "incomeMonth": 1787996133202
@@ -1857,7 +1858,7 @@
         "returned": true,
         "sold": "N/A",
         "soldPrice": "N/A",
-        "settled": false,
+        "settled": true,
         "note": "",
         "stylingScope": "一套",
         "acceptedMonth": "8月",
