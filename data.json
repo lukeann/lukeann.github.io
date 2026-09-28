@@ -1,5 +1,5 @@
 {
-  "activeMonth": "10月",
+  "activeMonth": "9月",
   "columns": [
     {
       "key": "brandName",
@@ -2311,9 +2311,9 @@
           "stylingScope": 1788411490443,
           "styleRequirement": 1788411462611,
           "deadline": 1789021301885,
-          "acceptedMonth": 1788411462611,
+          "acceptedMonth": 1790575188291,
           "publishDate": 1788411462611,
-          "incomeMonth": 1788411462611,
+          "incomeMonth": 1790575188291,
           "received": 1790133016580,
           "shot": 1788411462611,
           "published": 1788411462611,
@@ -2334,7 +2334,7 @@
         "deadline": "9月内",
         "acceptedMonth": "9月",
         "publishDate": "",
-        "incomeMonth": "9月",
+        "incomeMonth": "10月",
         "received": false,
         "shot": false,
         "published": false,
