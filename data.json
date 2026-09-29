@@ -1,5 +1,5 @@
 {
-  "activeMonth": "10月",
+  "activeMonth": "9月",
   "columns": [
     {
       "key": "brandName",
@@ -2661,6 +2661,51 @@
         "soldPrice": "N/A",
         "settled": "N/A",
         "note": ""
+      },
+      {
+        "id": "6a1c9bc9-63ee-4af0-90ea-4507a93ffdfb",
+        "brandName": "",
+        "incomeCategory": "服装拍摄",
+        "cooperationType": "寄拍",
+        "price": "",
+        "taobaoAdvance": "",
+        "principalReturned": false,
+        "stylingScope": "待确认",
+        "styleRequirement": "",
+        "deadline": "",
+        "acceptedMonth": "9月",
+        "publishDate": "",
+        "incomeMonth": "9月",
+        "received": false,
+        "shot": false,
+        "published": false,
+        "returned": false,
+        "sold": "N/A",
+        "soldPrice": "N/A",
+        "settled": false,
+        "note": "",
+        "_fieldUpdatedAt": {
+          "brandName": 1790653858011,
+          "incomeCategory": 1790653858011,
+          "cooperationType": 1790653858011,
+          "price": 1790653858011,
+          "taobaoAdvance": 1790653858011,
+          "principalReturned": 1790653858011,
+          "stylingScope": 1790653858011,
+          "styleRequirement": 1790653858011,
+          "deadline": 1790653858011,
+          "acceptedMonth": 1790653858011,
+          "publishDate": 1790653858011,
+          "incomeMonth": 1790653858011,
+          "received": 1790653858011,
+          "shot": 1790653858011,
+          "published": 1790653858011,
+          "returned": 1790653858011,
+          "sold": 1790653858011,
+          "soldPrice": 1790653858011,
+          "settled": 1790653858011,
+          "note": 1790653858011
+        }
       }
     ],
     "10月": [
