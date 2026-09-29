@@ -1,5 +1,5 @@
 {
-  "activeMonth": "9月",
+  "activeMonth": "10月",
   "columns": [
     {
       "key": "brandName",
@@ -1748,8 +1748,8 @@
           "brandName": 1787501442807,
           "deadline": 1787501468370,
           "stylingScope": 1788016402541,
-          "acceptedMonth": 1787996133202,
-          "incomeMonth": 1787996133202
+          "acceptedMonth": 1790653729260,
+          "incomeMonth": 1790653729260
         },
         "brandName": "SOMENUM",
         "cooperationType": "置换",
@@ -1769,7 +1769,7 @@
         "stylingScope": "单件·上衣",
         "acceptedMonth": "8月",
         "publishDate": "",
-        "incomeMonth": "9月",
+        "incomeMonth": "10月",
         "incomeCategory": "服装拍摄"
       },
       {
