@@ -1,5 +1,5 @@
 {
-  "activeMonth": "10月",
+  "activeMonth": "9月",
   "columns": [
     {
       "key": "brandName",
@@ -1624,6 +1624,7 @@
           "shot": 1789748498503,
           "published": 1790132993066,
           "returned": 1790242386596,
+          "settled": 1790784901205,
           "stylingScope": 1788016312401,
           "acceptedMonth": 1787996133202,
           "incomeMonth": 1787996133202
@@ -1641,7 +1642,7 @@
         "returned": true,
         "sold": "N/A",
         "soldPrice": "N/A",
-        "settled": false,
+        "settled": true,
         "note": "",
         "stylingScope": "一套",
         "acceptedMonth": "8月",
