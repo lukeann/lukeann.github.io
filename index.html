@@ -868,6 +868,8 @@
 
   <script>
     const PASSWORD = "200366";
+    const DEFAULT_GITHUB_REPO = "lukeann/private-data";
+    const LEGACY_GITHUB_REPO = "lukeann/lukeann.github.io";
 
     const STORAGE_KEY = "pr_tracker_v2";
     const SETTINGS_KEY = "pr_tracker_settings_v2";
@@ -883,7 +885,7 @@
       theme: "auto",
       fontSize: 16,
       ghToken: "",
-      ghRepo: "lukeann/lukeann.github.io",
+      ghRepo: DEFAULT_GITHUB_REPO,
       pendingSync: false
     };
 
@@ -1479,7 +1481,9 @@
         theme: source.theme || DEFAULT_SETTINGS.theme,
         fontSize: Number(source.fontSize) || DEFAULT_SETTINGS.fontSize,
         ghToken: source.ghToken || "",
-        ghRepo: source.ghRepo || DEFAULT_SETTINGS.ghRepo,
+        ghRepo: !source.ghRepo || source.ghRepo === LEGACY_GITHUB_REPO
+          ? DEFAULT_GITHUB_REPO
+          : source.ghRepo,
         pendingSync: Boolean(source.pendingSync)
       };
     }
