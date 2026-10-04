@@ -1,5 +1,5 @@
 {
-  "activeMonth": "9月",
+  "activeMonth": "10月",
   "columns": [
     {
       "key": "brandName",
@@ -1499,6 +1499,7 @@
         "_fieldUpdatedAt": {
           "deadline": 1789020937938,
           "received": 1787500601853,
+          "shot": 1791083313552,
           "stylingScope": 1788016306049,
           "acceptedMonth": 1790477568815,
           "incomeMonth": 1790477568815
@@ -1511,7 +1512,7 @@
         "styleRequirement": "",
         "deadline": "9月底前",
         "received": true,
-        "shot": false,
+        "shot": true,
         "published": false,
         "returned": false,
         "sold": "N/A",
@@ -1748,6 +1749,8 @@
         "_fieldUpdatedAt": {
           "brandName": 1787501442807,
           "deadline": 1787501468370,
+          "shot": 1791083317229,
+          "published": 1791083315218,
           "stylingScope": 1788016402541,
           "acceptedMonth": 1790653729260,
           "incomeMonth": 1790653729260
@@ -1760,8 +1763,8 @@
         "styleRequirement": "双面外套",
         "deadline": "9月底前",
         "received": true,
-        "shot": false,
-        "published": false,
+        "shot": true,
+        "published": true,
         "returned": "N/A",
         "sold": false,
         "soldPrice": "N/A",
