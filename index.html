@@ -904,6 +904,7 @@
       { key: "incomeMonth", label: "收入月份", type: "text" },
       { key: "received", label: "已收到", type: "check" },
       { key: "shot", label: "已拍摄", type: "check" },
+      { key: "edited", label: "已剪辑", type: "check" },
       { key: "published", label: "已发布", type: "check" },
       { key: "returned", label: "已寄回", type: "check" },
       { key: "sold", label: "已出掉", type: "check" },
@@ -1319,11 +1320,23 @@
       const normalizedMonths = {};
       const deletedRowIds = Array.isArray(source.deletedRowIds) ? source.deletedRowIds : [];
       const deletedRowIdSet = new Set(deletedRowIds);
+      const legacyEditedKeys = new Set((source.columns || [])
+        .filter((column) => column.label === "已剪辑" && column.key !== "edited")
+        .map((column) => column.key));
 
       Object.keys(months).forEach((month) => {
         normalizedMonths[month] = (months[month] || [])
           .map((row) => {
+            const legacyEdited = Array.from(legacyEditedKeys).some((key) => {
+              const value = row[key];
+              return value === true || /^(是|已剪辑|已完成|完成|1)$/i.test(String(value || "").trim());
+            });
             const normalized = normalizeRow(row);
+            if (legacyEdited) normalized.edited = true;
+            legacyEditedKeys.forEach((key) => {
+              delete normalized[key];
+              if (normalized._fieldUpdatedAt) delete normalized._fieldUpdatedAt[key];
+            });
             // 旧数据原本按接单月存放：首次升级时保留该月份作为接单月和收入归属月。
             if (!normalized.acceptedMonth) normalized.acceptedMonth = month;
             if (!normalized.incomeMonth) normalized.incomeMonth = month;
@@ -1349,7 +1362,8 @@
         localStorage.setItem("migrated_march_to_june", "true");
       }
 
-      const columns = source.columns && source.columns.length ? source.columns : cloneDefault(defaultColumns);
+      const columns = (source.columns && source.columns.length ? source.columns : cloneDefault(defaultColumns))
+        .filter((column) => column.key !== "edited" && !legacyEditedKeys.has(column.key));
       const ensureColumn = (column, beforeKey) => {
         if (columns.some(c => c.key === column.key)) return;
         const index = columns.findIndex(c => c.key === beforeKey);
@@ -1364,6 +1378,12 @@
       ensureColumn({ key: "acceptedMonth", label: "接单月份", type: "text" }, "received");
       ensureColumn({ key: "publishDate", label: "发布日期", type: "text" }, "received");
       ensureColumn({ key: "incomeMonth", label: "收入月份", type: "text" }, "received");
+      const shotIndex = columns.findIndex((column) => column.key === "shot");
+      columns.splice(shotIndex >= 0 ? shotIndex + 1 : columns.length, 0, {
+        key: "edited",
+        label: "已剪辑",
+        type: "check"
+      });
       if (!columns.some(c => c.key === "note")) {
         columns.push({ key: "note", label: "备注", type: "text" });
       }
@@ -1419,6 +1439,7 @@
         incomeMonth: "",
         received: /已收到|已签收|收到/.test(row.status || row.note || ""),
         shot: /已拍摄|已拍|拍完/.test(row.status || row.note || ""),
+        edited: false,
         published: /已发布|已发笔记|已完成|完成/.test(row.status || row.note || ""),
         returned: /已寄回|已退回|寄回/.test(row.status || row.note || ""),
         sold: /已出掉|已卖|卖掉|出掉/.test(row.status || row.note || ""),
@@ -2195,6 +2216,7 @@
         "      \"publishDate\": \"\",",
         "      \"received\": false,",
         "      \"shot\": false,",
+        "      \"edited\": false,",
         "      \"published\": false,",
         "      \"returned\": false,",
         "      \"sold\": false,",
@@ -2211,7 +2233,7 @@
         "- stylingScope 只能是：一套、单件·上衣、单件·下装、待确认。明确为上下装/套装时填「一套」；只有上衣时填「单件·上衣」；只有裤子、裙子等下装时填「单件·下装」；无法确定时填「待确认」。",
         "- publishDate 仅在明确已发布且能从聊天中确定日期时填写，格式为「9月10日」；否则留空。",
         "- price、taobaoAdvance、soldPrice 保留最终金额；如果是置换且无金额，price 可填「置换」。",
-        "- principalReturned、received、shot、published、returned、sold、settled 使用 true、false 或 \"N/A\"。",
+        "- principalReturned、received、shot、edited、published、returned、sold、settled 使用 true、false 或 \"N/A\"。",
         "- 没有明确出现的信息不要编造；品牌名不明确时 brandName 留空。",
         "- note 用来记录改价、改合作方式、寄回单号、特殊要求、无法放进其他字段的重要信息。",
         "",
@@ -2302,6 +2324,7 @@
         incomeMonth: state.activeMonth,
         received: Boolean(row.received),
         shot: Boolean(row.shot),
+        edited: Boolean(row.edited),
         published: Boolean(row.published),
         returned: Boolean(row.returned),
         sold: Boolean(row.sold),
@@ -2375,6 +2398,7 @@
         incomeMonth: state.activeMonth,
         received: /已收到|收到货|收到了|已签收/.test(clean),
         shot: /已拍摄|拍完|已拍|拍好了/.test(clean),
+        edited: /已剪辑|剪辑完成|剪完了/.test(clean),
         published: /已发布|已发笔记|已发|发布了/.test(clean),
         returned: /已寄回|寄回了|已退回|退回/.test(clean),
         sold: /已出掉|卖掉|已卖|出掉了/.test(clean),
